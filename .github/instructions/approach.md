@@ -1,0 +1,8 @@
+- When asked about code or algorigthm , make sure to follow the below
+- Always explain intuition and a mental model for any problem or generic solutions or optimal solutions
+- Add ample comments in the code at critical points to explain whats going on.
+- Give code and pdeudocode for the solution
+- Give Time and Space complexity and explain how the the complexity was arrived at
+- give general and then optimal solutions
+- explain the intuition, some initial cases , why we are taking that, how to think , how to approach and think and come to solution
+- show some diagrams to explain and dry run the problem

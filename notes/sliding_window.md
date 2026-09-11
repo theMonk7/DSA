@@ -431,18 +431,98 @@ def smallest_range(nums):
 
 ---
 
-## 6. Template D — "at most K" → "exactly K" by subtraction
+## 6. Counting cookbook — at most K / exactly K / at least K
+
+Longest records **one length** after the shrink. Counting uses the **same window** and
+records **how many starts** share the frontier. The shrink rule depends on the
+inequality; equality is never a shrink rule.
+
+Write `N = n(n+1)/2` for the number of contiguous subarrays. The measure (distinct
+count, odd count, sum of non-negatives, …) must be a **non-negative integer** and
+monotone in the window's extent (§1).
+
+| Ask | Monotone? | Shrink | Formula |
+|---|---|---|---|
+| **at most K** | yes — grow can only exceed K | while `measure > K` | `res += right - left + 1` after shrink |
+| **exactly K** | **no** — flips on then off | never shrink on `== K` | `atMost(K) - atMost(K-1)` |
+| **at least K** | yes — grow can only help | while still valid (`measure >= K`) | `N - atMost(K-1)`, or `ans += left` |
+
+Same loop, four different `+=` (longest included for contrast):
+
+```python
+best = max(best, right - left + 1)   # LONGEST  at most K     (Template A)
+res  += right - left + 1             # COUNT    at most K     (Template E)
+best = min(best, right - left + 1)   # SHORTEST at least K    (Template C, inside while)
+ans  += left                         # COUNT    at least K    (after shrink-while-valid)
+# COUNT exactly K:  at_most(k) - at_most(k - 1)               (Template D, two passes)
+```
+
+### 6.0 at most K — shrink while invalid, then count starts
+
+After shrink, `left` is the *smallest* start for which `[left, right]` still has
+measure ≤ K. By monotonicity every start in `{left, …, right}` works, and all those
+subarrays **end at this `right`**:
+
+```
+atMost(K) = Σ_r (r - L(r) + 1)
+```
+
+where `L(r)` is the frontier after shrinking. This is Template E (§7). LC 713, 2302.
+
+```python
+def at_most(nums, k, add, remove, value):
+    if k < 0: return 0
+    left = state = res = 0
+    for right, x in enumerate(nums):
+        state = add(state, x)
+        while value(state) > k:                  # invalid → shrink
+            state = remove(state, nums[left]); left += 1
+        res += right - left + 1                  # all valid starts ending at right
+    return res
+```
+
+### 6.1 at least K — complement, or count the *wide* starts
+
+Growing helps, so the valid windows are the **wide** ones. Two equivalent formulas:
+
+```
+atLeast(K) = N - atMost(K-1)
+atLeast(K) = Σ_r L(r)
+```
+
+The second: shrink **while still valid** (Template C). When the `while` stops, `left` is
+the first start that *breaks* validity, so every start in `{0, …, left-1}` still contains
+enough — that is `left` subarrays ending at `right`. LC 1358 is this with a 3-letter
+alphabet; last-seen (`min(last)+1`) is the same count without an explicit `left`.
+
+```python
+def at_least(nums, k, add, remove, value):
+    n = len(nums)
+    return n * (n + 1) // 2 - at_most(nums, k - 1, add, remove, value)
+
+def at_least_frontier(items, is_valid, add, remove):
+    left = ans = 0
+    for right, x in enumerate(items):
+        add(x)
+        while is_valid():                        # still "enough" → push left
+            remove(items[left]); left += 1
+        ans += left                              # starts 0 .. left-1 all work
+    return ans
+```
+
+### 6.2 exactly K — subtraction, never a direct window (Template D)
 
 Counting subarrays with **exactly** K of something is *not* a window problem: as `right`
 grows, "exactly K" switches on **and off**, so validity is not monotone (§1). But
 **"at most K" is monotone** — adding elements can only push you over. Hence:
 
-$$\text{exactly}(K) = \text{atMost}(K) - \text{atMost}(K-1)$$
+```
+exactly(K) = atMost(K) - atMost(K-1)
+```
 
 **Why it works.** `atMost(K)` counts subarrays whose measure lies in `{0,…,K}`;
 `atMost(K-1)` counts `{0,…,K-1}`. The second set is a subset of the first, so subtracting
 the counts leaves the count of the set difference — exactly the measure-`K` subarrays.
-The only requirement is that the measure be a non-negative integer.
 
 ```python
 def exactly_k(nums, k, measure):
@@ -460,7 +540,7 @@ def exactly_k(nums, k, measure):
 **Time O(n) (two passes) / Space O(state).**
 
 **Mental trigger:** *"exactly K …"*, *"sum equals goal"* over non-negative data → write
-`atMost` once, call it twice.
+`atMost` once, call it twice. *"at least K …"* → `N - atMost(K-1)` or `ans += left`.
 
 ### 6a. Subarrays with K Different Integers (LC 992)
 
@@ -513,10 +593,12 @@ def num_subarrays_with_sum(nums, goal):
     return at_most(goal) - at_most(goal - 1)
 ```
 
-### 6d. Substrings Containing All Three Characters (LC 1358)
+### 6d. Substrings Containing All Three Characters (LC 1358) — at least K, last-seen
 
-Here the complement is cleaner still: for each `right`, every start at or before
-`min(last_a, last_b, last_c)` gives a valid substring.
+This is **at least** (the window must contain a, b, *and* c). Complement works
+(`N - atMost(2)` with distinct-count), but the frontier is even cleaner: for each
+`right`, every start at or before `min(last_a, last_b, last_c)` already contains all
+three, so that many prefixes of `[0..right]` are valid.
 
 ```python
 def number_of_substrings(s):
@@ -527,7 +609,22 @@ def number_of_substrings(s):
         ans += min(last.values()) + 1            # 0 while a letter is still missing
     return ans
 ```
-**Time O(n) / Space O(1).**
+
+Same count as the Template-C window (`ans += left` after shrinking while still valid):
+
+```python
+def number_of_substrings_window(s):
+    count = {'a': 0, 'b': 0, 'c': 0}
+    left = ans = 0
+    for right, c in enumerate(s):
+        count[c] += 1
+        while all(count[ch] > 0 for ch in 'abc'):
+            count[s[left]] -= 1
+            left += 1                            # left = first start that BREAKS validity
+        ans += left                              # starts 0 .. left-1 all contain a,b,c
+    return ans
+```
+**Time O(n) / Space O(1).** `min(last)+1` is this with O(1) state for a 3-letter alphabet.
 
 ---
 
@@ -544,7 +641,24 @@ which `[left, right]` is valid. By monotonicity (§1) the valid starts for this 
 because every subarray has exactly one right end. Writing `res += 1` instead counts
 *windows*, not subarrays — a classic silent wrong answer.
 
-**Mental trigger:** *"count the number of subarrays such that …"*.
+**This does not overlap.** A subarray is a pair `(L, R)` with one right end. The
+increment at `right = 3` only adds pairs `(*, 3)`; the increment at `right = 2` only
+added `(*, 2)`. Those sets are disjoint — summing over `right` is a **partition** of
+subarrays by right endpoint. Inner windows that *live inside* `[left, right]` ended
+*earlier* and were already billed to that earlier `right`. Same `left` on two iterations
+only means the frontier did not move, so new suffixes ending at the *new* `right` became
+valid.
+
+```
+index:     0    1    2    3
+           a    b    c    d
+
+right=2, left=1  →  [b,c], [c]           all end at 2
+right=3, left=1  →  [b,c,d], [c,d], [d]  all end at 3  (disjoint from above)
+```
+
+**Mental trigger:** *"count the number of subarrays such that …"* (at most / less-than).
+For *at least* / *exactly* see §6.
 
 ### 7a. Subarray Product Less Than K (LC 713)
 
@@ -1043,8 +1157,10 @@ extent.* If you cannot state that monotonicity in one sentence, you have the wro
 | "longest substring/subarray such that …" | **A** — shrink while invalid |
 | "shortest / minimum window containing …" | **C** — shrink while valid |
 | "of size k", "every window of length k" | **B** — fixed |
-| "exactly K …", "sum == goal" (non-negative) | **D** — `atMost` subtraction |
-| "count the number of subarrays where …" | **E** — `right - left + 1` |
+| "at most K …" (count) | **E** — shrink while invalid, `res += right - left + 1` |
+| "exactly K …", "sum == goal" (non-negative) | **D** — `atMost(K) - atMost(K-1)` |
+| "at least K …" (count) | `N - atMost(K-1)`, or `ans += left` after shrink-while-valid |
+| "count the number of subarrays where …" | **E** / §6 cookbook — do **not** `res += 1` |
 | "max/min of every window" | **B + monotonic deque** |
 | "median / k-th smallest of every window" | **B + SortedList / two heaps** |
 | "sorted array, find a pair/triple summing to X" | opposite-ends two pointers |
@@ -1176,7 +1292,22 @@ monotonic deque (§1.1).
 <details><summary>Answer</summary>
 A heap cannot delete an arbitrary element in `O(log k)` — only the top. You must use lazy
 deletion, which lets the heap grow to `O(n)` and costs `O(n log n)`. A monotonic deque
-discards dominated elements eagerly (smaller *and* older can never be the answer), giving
+discards d
+
+**Q9.** Write the three counting formulas (at most / exactly / at least) in one line each.
+<details><summary>Answer</summary>
+`atMost(K)`: shrink while `measure > K`, then `res += right - left + 1`.
+`exactly(K) = atMost(K) - atMost(K-1)`.
+`atLeast(K) = n(n+1)/2 - atMost(K-1)`, equivalently `ans += left` after shrinking while
+still valid. Equality is never a shrink condition.
+</details>
+
+**Q10.** Why does `res += right - left + 1` not double-count nested windows?
+<details><summary>Answer</summary>
+Each increment only counts subarrays **ending at this `right`**. A nested window
+`[L, R]` with `R < right` was billed when the outer loop was at that earlier `R`.
+Summing over `right` partitions all subarrays by right endpoint — the sets are disjoint.
+</details>ominated elements eagerly (smaller *and* older can never be the answer), giving
 `O(n)` total and `O(k)` space.
 </details>
 
