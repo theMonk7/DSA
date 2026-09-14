@@ -337,7 +337,7 @@ The most-asked window problem. Four ideas, learned separately:
 1. **`need = Counter(t)`**; `required = len(need)` = how many *distinct* chars must be satisfied.
 2. **`window`** — counts in the current window. Only chars present in `need` affect validity.
 3. **`have`** — how many distinct chars currently satisfy `window[c] >= need[c]`. The
-   window is valid exactly when `have == required`. This one integer replaces an `O(Σ)`
+   window is valid exactly when `have == required`. This one integer replaces an `O(Σ)`n
    dict comparison.
 4. **The two flip points** — `have` changes by at most 1 per operation:
    - **adding** `c`: increment only when `window[c]` becomes *exactly* `need[c]` (going
@@ -437,9 +437,9 @@ Longest records **one length** after the shrink. Counting uses the **same window
 records **how many starts** share the frontier. The shrink rule depends on the
 inequality; equality is never a shrink rule.
 
-Write `N = n(n+1)/2` for the number of contiguous subarrays. The measure (distinct
-count, odd count, sum of non-negatives, …) must be a **non-negative integer** and
-monotone in the window's extent (§1).
+Write `N = n(n+1)/2` for the number of contiguous subarrays (derivation just below).
+The measure (distinct count, odd count, sum of non-negatives, …) must be a
+**non-negative integer** and monotone in the window's extent (§1).
 
 | Ask | Monotone? | Shrink | Formula |
 |---|---|---|---|
@@ -456,6 +456,26 @@ best = min(best, right - left + 1)   # SHORTEST at least K    (Template C, insid
 ans  += left                         # COUNT    at least K    (after shrink-while-valid)
 # COUNT exactly K:  at_most(k) - at_most(k - 1)               (Template D, two passes)
 ```
+
+### 6.00 Why `N = n(n+1)/2` (and not `n(n-1)/2`)
+
+A subarray is a pair of ends `(L, R)` with `0 ≤ L ≤ R ≤ n-1`. Fix `R`: `L` can be
+`0, 1, …, R` — that is `R+1` subarrays **ending at `R`**. Sum over every right end:
+
+```
+1 + 2 + … + n  =  n(n+1)/2
+```
+
+For `n = 4` that is `10`: four singles, three of length 2, two of length 3, one of
+length 4.
+
+`n(n-1)/2` is \(\binom{n}{2}\) — unordered **pairs of distinct indices**, which is
+also the count of subarrays of **length ≥ 2** (`N − n`). Using it in
+`atLeast(K) = N - atMost(K-1)` silently drops every length-1 subarray, so the answer
+is short by however many singles already meet the constraint.
+
+**Mental trigger:** full subarray count includes the diagonal `L = R`. That extra `n`
+is the `+1` in `n(n+1)/2`.
 
 ### 6.0 at most K — shrink while invalid, then count starts
 
@@ -481,19 +501,40 @@ def at_most(nums, k, add, remove, value):
     return res
 ```
 
-### 6.1 at least K — complement, or count the *wide* starts
+### 6.1 at least K — complement, or `at_least_frontier`
 
 Growing helps, so the valid windows are the **wide** ones. Two equivalent formulas:
 
 ```
-atLeast(K) = N - atMost(K-1)
-atLeast(K) = Σ_r L(r)
+atLeast(K) = N - atMost(K-1)     # complement: all subarrays minus those with measure ≤ K-1
+atLeast(K) = Σ_r L(r)            # at_least_frontier: count wide starts directly
 ```
 
-The second: shrink **while still valid** (Template C). When the `while` stops, `left` is
-the first start that *breaks* validity, so every start in `{0, …, left-1}` still contains
-enough — that is `left` subarrays ending at `right`. LC 1358 is this with a 3-letter
-alphabet; last-seen (`min(last)+1`) is the same count without an explicit `left`.
+**`at_least` (complement).** One `at_most` call, subtract from `N`. Same shrink as
+Template E. Use when you already have `at_most`.
+
+**`at_least_frontier` (direct).** This is Template C used for *counting*, not for a
+minimum length. Shrink **while the window is still valid** (`measure >= K`). When the
+`while` stops:
+
+- `[left, right]` has just gone **invalid** (too small / missing something)
+- every start **to the left of** `left` still has enough, because those windows are wider
+- so the valid starts for this `right` are `0, 1, …, left-1` — exactly `left` of them
+
+That is why the line is `ans += left`, **not** `ans += right - left + 1`. The latter
+counts the *narrow* (at-most) family. `left` itself is a count of wide starts.
+
+```
+index:        0    1    2    3    4
+              a    b    c    a    b
+                       right=4, left has been pushed to 3
+valid at-least starts:  0, 1, 2          → ans += 3  (== left)
+invalid:                3, 4             → too short to contain a,b,c
+```
+
+LC 1358 is this with a 3-letter alphabet; last-seen (`min(last)+1`) is the same
+`left` without walking it. Both formulas agree: complement uses `N`, frontier never
+needs `N`.
 
 ```python
 def at_least(nums, k, add, remove, value):
@@ -501,6 +542,7 @@ def at_least(nums, k, add, remove, value):
     return n * (n + 1) // 2 - at_most(nums, k - 1, add, remove, value)
 
 def at_least_frontier(items, is_valid, add, remove):
+    """Count subarrays with measure >= K by pushing left while still valid."""
     left = ans = 0
     for right, x in enumerate(items):
         add(x)
@@ -1292,14 +1334,16 @@ monotonic deque (§1.1).
 <details><summary>Answer</summary>
 A heap cannot delete an arbitrary element in `O(log k)` — only the top. You must use lazy
 deletion, which lets the heap grow to `O(n)` and costs `O(n log n)`. A monotonic deque
-discards d
+discards dominated elements eagerly (smaller *and* older can never be the answer), giving
+`O(n)` total and `O(k)` space.
+</details>
 
 **Q9.** Write the three counting formulas (at most / exactly / at least) in one line each.
 <details><summary>Answer</summary>
 `atMost(K)`: shrink while `measure > K`, then `res += right - left + 1`.
 `exactly(K) = atMost(K) - atMost(K-1)`.
 `atLeast(K) = n(n+1)/2 - atMost(K-1)`, equivalently `ans += left` after shrinking while
-still valid. Equality is never a shrink condition.
+still valid (`at_least_frontier`). Equality is never a shrink condition.
 </details>
 
 **Q10.** Why does `res += right - left + 1` not double-count nested windows?
@@ -1307,8 +1351,16 @@ still valid. Equality is never a shrink condition.
 Each increment only counts subarrays **ending at this `right`**. A nested window
 `[L, R]` with `R < right` was billed when the outer loop was at that earlier `R`.
 Summing over `right` partitions all subarrays by right endpoint — the sets are disjoint.
-</details>ominated elements eagerly (smaller *and* older can never be the answer), giving
-`O(n)` total and `O(k)` space.
+</details>
+
+**Q11.** Why is the total number of subarrays `n(n+1)/2` and not `n(n-1)/2`? What does
+`at_least_frontier`'s `ans += left` count?
+<details><summary>Answer</summary>
+Fix right end `R`: `L` can be `0..R`, so `R+1` subarrays end there. Sum `1+…+n =
+n(n+1)/2`. The `+1` is the singles (`L = R`). `n(n-1)/2` is pairs / length ≥ 2 only.
+In `at_least_frontier`, after shrinking while still valid, `left` is the first *invalid*
+start, so starts `0 .. left-1` still have enough — that is `left` wide subarrays ending
+at this `right`.
 </details>
 
 ---
