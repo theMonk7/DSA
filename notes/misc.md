@@ -1,0 +1,5 @@
+- bucket sort
+- quick select
+- difference array
+- line sweep
+- prefix and suffix sum
