@@ -39,6 +39,11 @@ def max_depth(node):
     r = max_depth(node.right)
     return 1 + max(l, r)              # (b) one level of combination
 ```
+**Time / Space:** `O(n)` / `O(h)`. Every node is visited exactly once and does `O(1)` work, so
+time is the node count. Space is the *deepest live chain of frames*, i.e. the tree height `h` —
+`O(log n)` balanced, `O(n)` for a degenerate (linked-list-shaped) tree. **Recursion space is
+depth, never total calls**: siblings' frames are already gone by the time the next one starts.
+
 **Three questions before coding any recursion:** (1) what is the smallest input and its answer?
 (2) what is "one step smaller"? (3) given the sub-answers, how do I build mine? If (2) has no
 answer you don't have a recursion, you have an infinite loop.
@@ -56,6 +61,10 @@ def f(n):
         return 1
     return n * f(n - 1)   # 2. RECURSIVE CASE with 3. PROGRESS (n-1 < n)
 ```
+**Time / Space:** `O(n)` / `O(n)`. `n` calls × `O(1)` work each; the whole chain `f(n) … f(1)`
+is live simultaneously, so `n` frames coexist. The iterative loop is the same `O(n)` time at
+`O(1)` space — that gap is *entirely* the call stack.
+
 **Progress is not optional.**
 ```python
 def broken(n):
@@ -142,6 +151,12 @@ def gcd_iter(a, b):                 # same thing, O(1) space
 def fact(n, acc=1):                 # non-tail `n * fact(n-1)` made tail via an ACCUMULATOR
     return acc if n <= 1 else fact(n - 1, acc * n)
 ```
+**Time / Space:** `gcd` is `O(log min(a,b))` / `O(log min(a,b))` recursive, `O(1)` iterative.
+*Why `log`:* two consecutive `%` steps at least **halve** the larger argument (if `b ≤ a/2` then
+`a % b < b ≤ a/2`; if `b > a/2` then `a % b = a - b < a/2`), so the pair shrinks geometrically.
+Worst case is consecutive Fibonacci numbers. `fact` is `O(n)` / `O(n)` — making it tail
+recursive does **not** save space in Python, which has no TCO; only the hand-written loop does.
+
 **4b. Explicit stack simulation.** When it isn't tail recursive, simulate the machine: push
 `(state, program_counter)` and resume.
 ```python
@@ -174,6 +189,11 @@ from functools import lru_cache
 @lru_cache(None)                    # without this: O(2^n); with it: O(n)
 def fib(n): return n if n < 2 else fib(n-1) + fib(n-2)
 ```
+**Time / Space:** `O(2^n)` → `O(n)` with the cache / `O(n)` stack + `O(n)` cache. *Derivation:*
+uncached, the tree has branching 2 and depth `n` — more precisely `2·F(n)-1` nodes, `Φ^n`.
+Cached, the argument `n` takes only `n+1` distinct values and each is computed once, so
+**time = number of distinct states × work per state** — the universal formula for memoised
+recursion.
 Recursion + memo = **top-down DP** (`dp.md`). Rule of thumb: *backtracking enumerates distinct
 outputs* (the answer depends on the path, so memoising is usually impossible); *DP counts or
 optimises over states*. If the return value depends only on the arguments, memoise it.
@@ -251,6 +271,11 @@ def subsets_dup(nums):                             # LC 90
     bt(0); return res
 # [1,2,2] -> [[],[1],[1,2],[1,2,2],[2],[2,2]]
 ```
+**Time / Space:** `O(n·2^n)` worst / `O(n)` stack + `O(log n)` sort. *Why the output can be
+smaller:* a value with multiplicity `cᵢ` contributes a choice of "how many copies to take",
+`0..cᵢ`, so the answer count is `∏(cᵢ + 1)`, not `2^n`. `[1,2,2]` → `2·3 = 6` subsets. Only an
+all-distinct input reaches `2^n`; the `O(n)` factor is the `path[:]` copy at each node.
+
 **Why `i > start`, not `i > 0`?** `i` walks *siblings* at this level and `start` is the first
 sibling. `i == start` is the first appearance of this value at this level — we must take it.
 `i > start` with `nums[i] == nums[i-1]` means an identical sibling was already explored at this
@@ -303,6 +328,17 @@ def combination_sum3(k, n):                        # LC 216: exactly k digits fr
     bt(1, n); return res
 # k=3,n=9 -> [[1,2,6],[1,3,5],[2,3,4]]
 ```
+**Time / Space:**
+
+| | Time | Space (excl. output) | Derivation |
+|---|---|---|---|
+| LC 39 `combination_sum` | `O(n^{T/m})` | `O(T/m)` | reuse is allowed, so depth is bounded only by how many times the *smallest* candidate `m` fits in target `T` → depth `T/m`, branching `n` |
+| LC 40 `combination_sum2` | `O(n·2^n)` | `O(n)` | each index is taken or skipped exactly once → `2^n` nodes, `O(n)` to copy a hit |
+| LC 216 `combination_sum3` | `O(1)` | `O(1)` | the universe is fixed at digits 1–9, so the tree has at most `2^9 = 512` nodes regardless of `k` and `n` |
+
+The `break` on a sorted array is what keeps LC 39/40 near those bounds instead of exploring the
+entire tail at every node.
+
 **Combination Sum IV (LC 377) is a trap** — it *counts* and **order matters** (`[1,2] ≠ [2,1]`),
 so it is unbounded-knapsack DP, not backtracking:
 ```python
@@ -314,6 +350,10 @@ def combination_sum4(nums, target):
     return dp[target]
 # [1,2,3], 4 -> 7
 ```
+**Time / Space:** `O(n·target)` / `O(target)` — a flat double loop, no recursion. This is the
+payoff for spotting that it *counts* instead of *enumerating*: backtracking here would be
+exponential in `target`, because the number of ordered sequences is itself exponential.
+
 Swap the loops (items outer) and you count *combinations* — the classic coin-change
 distinction. Cross-ref `dp.md`.
 ```python
@@ -334,6 +374,10 @@ def binary_strings(n):                             # all 2^n binary strings
             path.append(c); bt(); path.pop()
     bt(); return res                               # 2 -> ['00','01','10','11']
 ```
+**Time / Space:** `letter_case_permutation` is `O(n·2^L)` / `O(n)`, where `L` is the number of
+**letters** — digits don't branch, so `2^L` (not `2^n`) leaves, each costing `O(n)` to join.
+`binary_strings` is `O(n·2^n)` / `O(n)`: branching 2, depth `n`.
+
 **Bitmask alternative (no recursion).** For `n ≤ ~20` this is often 3× faster and impossible to
 get wrong:
 ```python
@@ -341,7 +385,13 @@ def subsets_bitmask(nums):
     n = len(nums)
     return [[nums[i] for i in range(n) if mask >> i & 1] for mask in range(1 << n)]
 ```
+**Time / Space:** `O(n·2^n)` / `O(1)` auxiliary (excluding the output). Identical asymptotics to
+the recursive version, but with **no call stack** — the mask *is* the path. Each of the `2^n`
+masks is scanned in `O(n)`.
+
 Bonus: iterate all submasks of `m` with `sub = (sub - 1) & m`; popcount via `bin(m).count('1')`.
+Summing over all masks, the submask loop is `O(3^n)` total, not `O(4^n)` — each of the `n` bits
+is independently in `sub`, in `m \ sub`, or outside `m`.
 
 **Mental trigger:** "choose some / choose k / sum to target, order irrelevant" → `start` index,
 recurse with `i` (reuse) or `i+1` (move on).
@@ -380,6 +430,11 @@ def permute_unique(nums):                          # LC 47, approach A: sort + u
     bt(); return res
 # [1,1,2] -> [[1,1,2],[1,2,1],[2,1,1]]
 ```
+**Time / Space:** `O(n·n!)` worst / `O(n)` stack + `O(n)` for `used`. The *output* is only
+`n!/∏cᵢ!` (multiset permutations), but the **tree is still `O(n!)` nodes** — the skip prunes
+whole subtrees, yet you still pay `O(n)` per level to scan all indices. `[1,1,1,1]` produces one
+answer while visiting far more than one node.
+
 `not used[i-1]` forces equal values to be consumed **left to right**, so each multiset ordering
 appears exactly once. (`used[i-1]` true means the twin is already on the path — deeper, legal.)
 ```python
@@ -387,14 +442,50 @@ def permute_unique_counter(nums):                  # approach B: cleaner, no sor
     from collections import Counter
     cnt, n, res, path = Counter(nums), len(nums), [], []
     def bt():
-        if len(path) == n: res.append(path[:]); return
+        if len(path) == n: 
+            res.append(path[:])
+            return
         for x in cnt:                              # branch over DISTINCT VALUES
-            if cnt[x] == 0: continue
-            cnt[x] -= 1; path.append(x)
+            if cnt[x] == 0: 
+                continue
+            cnt[x] -= 1
+            path.append(x)
             bt()
-            path.pop(); cnt[x] += 1
+            path.pop()
+            cnt[x] += 1
     bt(); return res
 ```
+**Why the `Counter` cannot repeat.** In `permute` the loop variable is an **index**; in this
+version it is a **value**. That one swap kills duplicates by construction:
+
+1. `for x in cnt` iterates the *keys* of a dict, and a dict has no repeated keys. So at any
+   level, the value `1` is offered as a choice **exactly once**, no matter how many `1`s the
+   input contains. Index-based loops offer it once *per copy* — that is the entire source of
+   duplicate permutations.
+2. Two sibling branches therefore always begin with **different** values, so their subtrees can
+   never produce a common output. Different first element ⇒ different permutation.
+3. Multiplicity moves out of the branching and into `cnt[x]`, which is just a *budget*: `cnt[x]
+   -= 1` says "one fewer `1` remains", not "I picked the left `1` rather than the right one".
+   The algorithm never distinguishes the copies, so it never double-counts them.
+
+Compare the two root levels on `[1,1,2]`:
+
+```
+index loop  ->  i=0 (1ₐ)   i=1 (1_b)   i=2 (2)     3 branches, two identical  -> needs a guard
+value loop  ->  x=1        x=2                      2 branches, distinct        -> guard-free
+```
+
+The `used[]` version generates the duplicate branch and then rejects it with
+`not used[i-1]`; the `Counter` version never generates it. Same pruning, moved from a runtime
+test into the data structure. **The general lesson: if the answer depends on values but your
+loop ranges over positions, you will need a dedup rule — change what you loop over instead.**
+
+**Time / Space:** `O(d·n·P)` / `O(n + d)`, where `d` = distinct values and `P = n!/∏cᵢ!` is the
+answer count. *Derivation:* every node is a **distinct** prefix (no wasted nodes, unlike
+approach A), and there are `O(n·P)` prefixes across all depths; each node loops over `d` keys.
+For all-distinct input `d = n`, `P = n!` and this degrades to `O(n·n!)` — matching `permute`.
+For heavy duplication it is dramatically faster: `[1]*10` visits 10 nodes, not `10!`.
+
 Branching over distinct values makes duplicates structurally impossible — no sort, no index
 gymnastics. Prefer this in an interview; it generalises to Squareful Arrays (LC 996).
 ```python
@@ -409,6 +500,10 @@ def next_permutation(nums):                        # LC 31, iterative O(n) / O(1
     return nums
 # [1,2,3]->[1,3,2]   [3,2,1]->[1,2,3]   [1,1,5]->[1,5,1]
 ```
+**Time / Space:** `O(n)` / `O(1)`. Each of the three phases (find the pivot, find the swap
+partner, reverse the suffix) is a single linear scan. Generating **all** `n!` permutations by
+repeating it is `O(n·n!)` total — the same as recursion, but at `O(1)` extra space.
+
 This is a greedy argument (smallest possible increase at the rightmost position) — see
 `greedy.md`. Applying it repeatedly enumerates all permutations lexicographically in `O(1)`
 extra space, beating recursion when memory matters.
@@ -488,6 +583,10 @@ def split_fib(s):                                  # LC 842
 # "123456579" -> [123,456,579] ;  "112358130" -> []
 ```
 Once the first two terms are fixed the rest is determined → `O(n²)` starting pairs × `O(n)`.
+**Time / Space:** `O(n³)` / `O(n)`. *Derivation:* the two `for L` levels at the top choose the
+first two terms — `O(n²)` pairs — and from there **every** later term is forced (`v` must equal
+`path[-1] + path[-2]`), so verifying a candidate pair is a single `O(n)` scan. The three
+`break`s are what collapse a would-be `O(2^n)` cut-enumeration down to `O(n³)`.
 ```python
 def can_partition_k(nums, k):                      # LC 698 — pruning IS the problem
     total = sum(nums)
@@ -512,6 +611,12 @@ def can_partition_k(nums, k):                      # LC 698 — pruning IS the p
 ```
 Measured node counts: `[3,3,3,3,4,4,4,4,5,5,5,5], k=6` → **61,767 without prunes, 13 with**.
 `[2,2,2,2,3,4,5], k=4` (infeasible) → **1,245 → 12**. Same algorithm; only the prunes differ.
+**Time / Space:** `O(k^n)` worst / `O(n + k)`. *Derivation:* each of the `n` items picks one of
+`k` buckets → `k^n` assignments. The two symmetry prunes cut the *effective* base far below `k`
+(empty buckets are interchangeable, so only the first one is ever tried), which is why the
+measured numbers are four orders of magnitude smaller than the bound. If you need a
+**guaranteed** bound instead of an empirical one, memoise on `(bitmask of used items, current
+bucket fill)` → `O(n·2^n)` time, `O(2^n)` space (§11.4).
 **Matchsticks to Square (LC 473)** is literally `can_partition_k(sticks, 4)` plus `len ≥ 4`.
 ```python
 def is_additive(num):                              # LC 306
@@ -574,6 +679,10 @@ def total_n_queens(n):
             bt(r + 1, cols | 1 << c, diag | 1 << (r - c + n), anti | 1 << (r + c))
     bt(0, 0, 0, 0); return count                   # the +n offset keeps r-c non-negative
 ```
+**Time / Space:** `O(n!)` / `O(n)` stack, `O(1)` per frame. Same class as the set version — the
+masks are plain ints passed by value, so there is nothing to undo and no hashing. *Why `n!` and
+not `n^n`:* the `cols` check alone means row `r` has at most `n - r` legal columns, so the leaf
+count is `≤ n·(n-1)·…·1`; the diagonal checks cut it much further in practice (§11.1).
 **Sudoku Solver (LC 37) — the box index.** Cell `(r,c)` is in box **`(r//3)*3 + c//3`**: `r//3`
 picks the band (0–2), `c//3` the stack (0–2), and `band*3 + stack` flattens to `0..8`.
 ```python
@@ -630,6 +739,10 @@ def rat_in_maze(m):                                # classic: collect ALL paths
     bt(0, 0); return res
 # [[1,0,0,0],[1,1,0,1],[1,1,0,0],[0,1,1,1]] -> ['DDRDRR','DRDDRR']
 ```
+**Time / Space:** `O(3^{n²})` / `O(n²)`. *Derivation:* the path can visit up to `n²` cells, and
+after arriving from one direction only **3** onward moves remain (you never step straight back
+onto the cell you came from, `seen` blocks it) — so branching 3, depth `n²`. Space is the `seen`
+grid `O(n²)` plus a path/stack of the same order.
 Listing the directions as `D, L, R, U` yields lexicographically ordered answers for free.
 ```python
 def unique_paths_iii(grid):                        # LC 980 — cover every empty cell exactly once
@@ -652,6 +765,10 @@ def unique_paths_iii(grid):                        # LC 980 — cover every empt
     bt(sr, sc, empty); return res
 # [[1,0,0,0],[0,0,0,0],[0,0,2,-1]] -> 2
 ```
+**Time / Space:** `O(3^{R·C})` / `O(R·C)` stack — same argument as the maze (3 onward moves,
+depth = cell count). Constraints cap `R·C ≤ 20`, which is the giveaway that exhaustive search is
+*intended*. Marking in the grid itself keeps the per-frame cost `O(1)`.
+
 **Number of Islands (LC 200) is the same machinery *without* the undo** — the crispest
 illustration of what `undo` is for: **undo when the mark means "on my current path"; don't undo
 when it means "globally processed".** Flood Fill, Surrounded Regions (130) and Pacific Atlantic
@@ -732,6 +849,11 @@ def remove_invalid_bfs(s):
         level = {t[:i] + t[i+1:] for t in level for i in range(len(t)) if t[i] in "()"}
     return [""]
 ```
+**Time / Space:** `O(n·2^n)` / `O(2^n)`. *Derivation:* a string at level `k` is `s` with some
+`k`-subset of positions deleted, so level `k` holds `≤ C(n,k)` distinct strings and all levels
+together hold `≤ 2^n`; each is validated in `O(n)`. The whole frontier is held in memory at
+once — that `O(2^n)` **space** is why BFS loses to DFS here, even though it stops at the first
+valid level.
 DFS version — precompute exactly how many `(` and `)` must go, then spend that quota:
 ```python
 def remove_invalid_dfs(s):
@@ -758,6 +880,11 @@ def remove_invalid_dfs(s):
     bt(0, "", 0, l, r); return sorted(res)
 # both agree: "()())()" -> ["(())()","()()()"] ;  ")(" -> [""]
 ```
+**Time / Space:** `O(n·2^n)` worst / `O(n)` stack + `O(n)` per stored answer. *Why it beats BFS
+in practice:* the `rem_l`/`rem_r` quota means a branch that has already deleted more than the
+minimum is **never created**, and the `open_cnt` guard kills unbalanced prefixes immediately —
+so the realised tree is a tiny fraction of `2^n`. Crucially the space is `O(n)` recursion depth
+instead of an exponential frontier.
 Write the DFS in an interview: it prunes by *quota* instead of exploring every deletion.
 ```python
 def judge_point24(cards):                          # LC 679
@@ -777,6 +904,11 @@ def judge_point24(cards):                          # LC 679
 # [4,1,8,7] -> True ; [1,2,1,2] -> False
 ```
 Key insight: don't build expression trees — repeatedly **replace two numbers by their result**.
+**Time / Space:** `O(1)` — the input is *always* 4 cards, so this is a bounded constant, but
+say the derivation out loud: at each step you pick an **ordered** pair from `m` numbers
+(`m(m-1)` ways) and one of 4 operators, leaving `m-1` numbers. That is
+`(4·3·4) × (3·2·4) × (2·1·4) = 48 × 24 × 8 ≈ 9{,}216` leaves — trivial. In general form it is
+`O(n²ⁿ · 4ⁿ)`. Space `O(n)` for the recursion plus the `rest` list per frame.
 ```python
 def generate_parenthesis(n):                       # LC 22
     res, path = [], []
@@ -913,6 +1045,11 @@ def find_kth_largest(nums, k):                     # LC 215 — quickselect, O(n
 ```
 Recursing into **one** side gives `T(n) = T(n/2) + n = O(n)` (geometric, not `n log n`). Beats
 the heap's `O(n log k)` in expectation; the heap wins on streams (`heaps.md`).
+**Time / Space:** `O(n)` expected, `O(n²)` worst / `O(n)` for the copy, `O(1)` if you partition
+in place. *Derivation:* a random pivot splits the array in expectation in half, so the work is
+`n + n/2 + n/4 + … = 2n`. The `O(n²)` worst case (always the extreme pivot) is why the random
+swap in `lomuto` is not optional; median-of-medians makes it `O(n)` worst case but is slower in
+practice.
 ```python
 def count_inversions(a):
     def sort_count(arr):
@@ -930,6 +1067,10 @@ def count_inversions(a):
     return sort_count(a)[1]
 # [2,4,1,3,5] -> 3
 ```
+**Time / Space:** `O(n log n)` / `O(n)`. *Derivation:* it **is** merge sort — `T(n) = 2T(n/2) +
+O(n)`, Master Theorem case 2. The counting is free because `inv += len(left) - i` credits a
+whole block of inversions in `O(1)` instead of one at a time; that single line is what turns
+the `O(n²)` brute force into `O(n log n)`.
 **Count of Smaller Numbers After Self (LC 315)** is the same merge, but you sort an *index*
 array and credit `j - mid` to `res[idx[i]]` whenever you take a left element (that many
 right-half elements were already emitted, i.e. smaller). `[5,2,6,1] -> [2,1,1,0]`; verified
@@ -957,6 +1098,12 @@ def closest_pair(points):                          # O(n log n)
 distance `d` (at most 8 points fit in a `d × 2d` box while staying pairwise `≥ d` apart), so the
 inner loop is `O(1)`. Re-sorting the strip gives `O(n log² n)`; merge-sorting by `y` alongside
 gives `O(n log n)`. Verified against brute force on 30 random point sets.
+**Time / Space:** `O(n log² n)` as written / `O(n)`. *Derivation:* `T(n) = 2T(n/2) + O(n log n)`
+because of the `sorted(...)` of the strip — Master Theorem case 2 with `k = 1` gives
+`Θ(n log² n)`. Drop the re-sort (thread a `y`-sorted list through the merge, exactly like merge
+sort) and the per-level cost falls to `O(n)`, giving the optimal `O(n log n)`. **The 7-neighbour
+bound is the whole proof — without it the strip scan would be `O(n²)` and the recursion
+pointless.**
 ```python
 def majority_dc(nums):                             # LC 169
     def rec(lo, hi):
@@ -980,6 +1127,11 @@ def max_subarray_dc(nums):                         # LC 53
     return rec(0, len(nums) - 1)
 # [-2,1,-3,4,-1,2,1,-5,4] -> 6 ; [-3,-1,-2] -> -1
 ```
+**Time / Space:** both are `O(n log n)` / `O(log n)` stack. *Derivation:* both fit
+`T(n) = 2T(n/2) + O(n)` — `majority_dc` pays `O(n)` for the two tie-break counts, `max_subarray_dc`
+pays `O(n)` for the two scans outward from `mid` — so Master Theorem case 2 gives `n log n`.
+Space is depth only; no array is copied (indices are passed, not slices — slicing would make it
+`O(n log n)` space).
 Majority is `O(n log n)` vs Boyer–Moore's `O(n)/O(1)`, but interviewers want the *correctness
 argument*: a global majority must be a majority of at least one half. Max-subarray is
 `O(n log n)` vs Kadane's `O(n)`, but the *crossing* idea generalises to segment trees
@@ -1023,7 +1175,11 @@ def beautiful_array(n):                            # LC 932
     return [x for x in res if x <= n]              # 4 -> [1,3,2,4]
 ```
 If `A` is beautiful so are `2A-1` and `2A`, and no `A[i] + A[j] = 2·A[k]` can straddle the
-halves because odd + even is odd, never `2k`. D&C on the *structure*, not the input: `O(n log n)`.
+halves because odd + even is odd, never `2k`. D&C on the *structure*, not the input.
+**Time / Space:** `O(n)` / `O(n)` — **not** `O(n log n)`, and the derivation is worth knowing:
+the list doubles, so the loop runs `⌈log₂ n⌉` times but iteration `i` costs only `O(2^i)`. The
+total is the geometric sum `1 + 2 + 4 + … + 2^⌈log n⌉ = O(n)`. **A doubling loop is `O(n)`, not
+`O(n log n)` — the last iteration dominates all the others combined.**
 ```python
 def build_tree(preorder, inorder):                 # LC 105
     pos = {v: i for i, v in enumerate(inorder)}    # O(1) root lookup
@@ -1062,6 +1218,9 @@ def depth_sum_inverse(nested):                     # LC 364: weight = maxDepth -
     return go(nested, 1)
 # [[1,1],2,[1,1]] -> 8 ; [1,[4,[6]]] -> 17
 ```
+**Time / Space:** `O(N)` / `O(D)` for both, where `N` = total items (integers **and** lists) and
+`D` = nesting depth. LC 364 makes two passes (depth first, then sum) — still `O(N)`, since `2N`
+is `O(N)`. The recursion mirrors the data, so each node is touched a constant number of times.
 LC 364 also has a one-pass form: keep a running `unweighted` sum and add it again at each level
 (each level's numbers get counted once more per remaining level).
 ```python
@@ -1080,6 +1239,14 @@ def flatten_gen(x):                                # generator version: recursio
         else: yield from flatten_gen(item)
 # list(flatten_gen([1,[4,[6,[]],7]])) -> [1,4,6,7]
 ```
+**Time / Space:** `NestedIterator` is `O(1)` **amortised** per `next()` / `O(N)` stack worst
+case. *Why amortised:* a single `hasNext()` can expand many lists, but each element is pushed
+and popped exactly once over the iterator's whole lifetime, so the total work across `N` calls
+is `O(N)` → `O(1)` each on average. Eagerly flattening in `__init__` is also `O(N)` total but
+pays it all up front and keeps the entire flat list — the lazy version wins when the caller
+stops early. `flatten_gen` is `O(N)` total / `O(D)` stack; `yield from` costs one extra frame
+per nesting level, so deep nesting can still hit the recursion limit.
+
 **Directory trees & JSON-like structures** — the recursion mirrors the data:
 ```python
 import os
@@ -1097,6 +1264,12 @@ def json_paths(obj, prefix=""):                    # {"a":{"b":1}} -> {"a.b": 1}
         return out
     return {prefix: obj}
 ```
+**Time / Space:** `dir_size` is `O(E)` / `O(D)` for `E` entries at depth `D` — but note the
+*real* cost is `E` syscalls, not CPU. `json_paths` is `O(N·L)` / `O(N)`, where `L` is the
+longest key path: it is `O(N)` nodes but each leaf builds a string of length `O(L)`, and every
+`out.update` copies its child's dict upward — building one shared result dict passed down,
+instead of merging dicts on the way up, removes that extra factor.
+
 Related: LC 388 Longest Absolute File Path, LC 772 Basic Calculator III (a hand-written
 recursive-descent parser is mutual recursion between `expr` / `term` / `factor`).
 ```python
@@ -1109,6 +1282,10 @@ def tree_stats(node):
     hr, cr, sr = tree_stats(node.right)
     return (1 + max(hl, hr), 1 + cl + cr, node.val + sl + sr)
 ```
+**Time / Space:** `is_even`/`is_odd` are `O(n)` / `O(n)` — mutual recursion still builds one
+stack, so the depth is `n` (a `n % 2` check is the obvious fix; this is a teaching example).
+`tree_stats` is `O(n)` / `O(h)`: one visit per node, `O(1)` merge work.
+
 Returning a tuple is the single most useful trick in tree problems — it collapses two `O(n)`
 traversals into one. It powers Balanced Binary Tree (110), Diameter (543), House Robber III
 (337), Largest BST Subtree (333) and Max Path Sum (124). See `trees.md`.
@@ -1154,21 +1331,31 @@ traversals into one. It powers Balanced Binary Tree (110), Diameter (543), House
 | Problem | Time | Space (excl. output) | Output size |
 |---|---|---|---|
 | Subsets (78) | `O(n·2^n)` | `O(n)` | `2^n` |
-| Subsets II (90) | `≤ O(n·2^n)` | `O(n)` | ≤ `2^n` |
+| Subsets II (90) | `≤ O(n·2^n)` | `O(n)` | `∏(cᵢ+1)` ≤ `2^n` |
 | Permutations (46) | `O(n·n!)` | `O(n)` | `n!` |
-| Permutations II (47) | `O(n·n!)` | `O(n)` | `n!/∏cᵢ!` |
+| Permutations II (47) `used[]` | `O(n·n!)` | `O(n)` | `n!/∏cᵢ!` |
+| Permutations II (47) `Counter` | `O(d·n·P)`, `P = n!/∏cᵢ!` | `O(n+d)` | `P` |
 | Combinations (77) | `O(k·C(n,k))` | `O(k)` | `C(n,k)` |
 | Combination Sum (39) | `O(n^{T/m})` | `O(T/m)` | — |
+| Combination Sum II (40) | `O(n·2^n)` | `O(n)` | — |
+| Combination Sum III (216) | `O(1)` (≤ `2^9` nodes) | `O(1)` | ≤ `C(9,k)` |
+| Combination Sum IV (377) | `O(n·T)` **DP** | `O(T)` | 1 (a count) |
 | Generate Parentheses (22) | `O(4^n/√n)` | `O(n)` | Catalan `Cₙ` |
 | Letter Combinations (17) | `O(4^n·n)` | `O(n)` | ≤ `4^n` |
 | Palindrome Partitioning (131) | `O(n·2^n)` | `O(n²)` table | ≤ `2^{n-1}` |
 | N-Queens (51) | `O(n!)` | `O(n)` | ~`n!/cⁿ` |
 | Sudoku (37) | `O(9^m)` | `O(m)` | 1 |
 | Word Search (79) | `O(R·C·3^L)` | `O(L)` | 1 |
+| Unique Paths III (980) | `O(3^{R·C})` | `O(R·C)` | — |
+| Partition to K (698) | `O(k^n)`, `O(n·2^n)` memoised | `O(n+k)` | 1 |
+| Remove Invalid Parens (301) DFS | `O(n·2^n)` worst | `O(n)` | — |
+| Remove Invalid Parens (301) BFS | `O(n·2^n)` | `O(2^n)` frontier | — |
+| Diff Ways to Compute (241) | Catalan, less with memo | `O(n²)` cache | Catalan |
 | Expression Add Operators (282) | `O(4^n·n)` | `O(n)` | — |
 | Merge sort / Skyline / Inversions | `O(n log n)` | `O(n)` | — |
-| Quickselect (215) | `O(n)` exp., `O(n²)` worst | `O(1)` | — |
-| Closest pair | `O(n log n)` | `O(n)` | — |
+| Quickselect (215) | `O(n)` exp., `O(n²)` worst | `O(1)` in place | — |
+| Closest pair | `O(n log² n)`, `O(n log n)` tuned | `O(n)` | — |
+| Beautiful Array (932) | `O(n)` (doubling) | `O(n)` | `n` |
 
 | The prompt says… | Reach for |
 |---|---|

@@ -1625,7 +1625,7 @@ worth it; I'd use a binary heap or a d-ary heap."
 
 ---
 
-## 11. Heapsort
+## 11. Heapsort TODO: 
 
 **How to think.** If you can build a max-heap in O(n) and pop-max in O(log n),
 then n pops give you the descending order of the array. Heapsort just pops

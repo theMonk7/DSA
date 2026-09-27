@@ -1,0 +1,6 @@
+{
+  "download_dependent_artifacts": ["fileA.zip", "fileB.zip"],
+  "run_script": "install.sh",
+  "copy_dependent_artifacts": ["/tmp/fileA", "/tmp/fileB"],
+  "artifacts": ["artifact1.pkg", "artifact2.pkg"]
+}
