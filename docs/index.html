@@ -103,8 +103,21 @@ a{color:var(--teal)}
 .chip.on{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
 :root[data-theme="dark"] .chip.on,:root:not([data-theme="light"]) .chip.on{color:#0e1319}
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .chip.on{color:#fff}}
-.chip .x{margin-left:5px;opacity:.6;font-weight:700}
-.chip .x:hover{opacity:1}
+.chip .x{margin-left:5px;opacity:.6;font-weight:700;background:none;border:0;
+  color:inherit;font-size:12px;cursor:pointer;padding:0 1px;line-height:1}
+.chip .x:hover{opacity:1;color:var(--red)}
+.chip-wrap{display:inline-flex;align-items:stretch;border-radius:999px;overflow:hidden;
+  border:1px solid var(--border);background:var(--surface-3)}
+.chip-wrap.mod{background:var(--teal-soft);border-color:color-mix(in srgb,var(--teal) 30%,transparent)}
+.chip-wrap.on{background:var(--teal);border-color:var(--teal)}
+.chip-wrap .chip{border:0;border-radius:0;background:none}
+.chip-wrap .chip:hover{background:rgba(125,137,151,.14)}
+.chipx{border:0;background:none;color:var(--ink-3);font-size:13px;line-height:1;
+  padding:0 7px 0 2px;cursor:pointer;font-weight:600}
+.chipx:hover{color:var(--red);background:var(--red-soft)}
+.chip-wrap.on .chipx{color:inherit;opacity:.75}
+.chip-wrap.on .chipx:hover{opacity:1;background:rgba(0,0,0,.18)}
+.chipx[data-armed="1"]{color:var(--red);background:var(--red-soft)}
 .tagbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px;
   padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
 .tagbar-label{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
@@ -975,6 +988,27 @@ function addTag(id,name){
 function removeTag(id,name){
   setItem(id,{tags:st(id).tags.filter(function(t){return t!==name;})});
 }
+/* Remove a tag from every problem that carries it. Module tags are implicit and
+   cannot be deleted this way. */
+function tagUsage(name){
+  var ids=[];
+  ALL_PROBLEMS.forEach(function(r){
+    if(st(r.item.id).tags.indexOf(name)>=0)ids.push(r.item.id);
+  });
+  return ids;
+}
+function deleteTagEverywhere(name){
+  var ids=tagUsage(name);
+  if(!ids.length){toast("That tag is not used anywhere.");return;}
+  ids.forEach(function(id){removeTag(id,name);});
+  var i=activeTags.indexOf(name);
+  if(i>=0)activeTags.splice(i,1);
+  render();
+  store.bulk(STATE).then(function(ok){
+    toast(ok?('Removed "'+name+'" from '+ids.length+' problem'+(ids.length===1?"":"s")+"."):
+             "Could not save that change.");
+  });
+}
 function toggleActiveTag(name){
   var i=activeTags.indexOf(name);
   if(i<0)activeTags.push(name); else activeTags.splice(i,1);
@@ -1171,7 +1205,10 @@ function conceptCard(c){
 }
 
 function tagEditor(id){
-  var h='<h4>Tags</h4><div class="row-tags" style="margin-top:0">';
+  var mine=st(id).tags.length;
+  var h='<h4>Tags'+(mine?' <span style="text-transform:none;letter-spacing:0;font-weight:400">'+
+    '\u2014 \u00d7 removes it from this problem</span>':'')+'</h4>'+
+    '<div class="row-tags" style="margin-top:0">';
   itemTags(id).forEach(function(tg){
     h+='<span class="chip'+(tg.implicit?" mod":"")+'">'+esc(tg.name)+
        (tg.implicit?'':'<button class="x" data-tagdel="'+esc(id)+'" data-tagname="'+esc(tg.name)+
@@ -1487,9 +1524,13 @@ function tagBar(){
   if(route.view!=="search"&&!shown.length&&!activeTags.length)return "";
   var h='<div class="tagbar"><span class="tagbar-label">Tags</span>';
   shown.forEach(function(t){
-    h+='<button class="chip'+(t.implicit?" mod":"")+
-      (activeTags.indexOf(t.name)>=0?" on":"")+'" data-tagclick="'+esc(t.name)+'">'+
-      esc(t.name)+' <span style="opacity:.6">'+t.count+'</span></button>';
+    var on=activeTags.indexOf(t.name)>=0;
+    h+='<span class="chip-wrap'+(t.implicit?" mod":"")+(on?" on":"")+'">'+
+      '<button class="chip'+(t.implicit?" mod":"")+(on?" on":"")+'" data-tagclick="'+esc(t.name)+
+        '" title="Filter by this tag">'+esc(t.name)+' <span style="opacity:.6">'+t.count+'</span></button>'+
+      (t.implicit?'':'<button class="chipx" data-tagpurge="'+esc(t.name)+
+        '" title="Delete this tag from every problem" aria-label="Delete tag everywhere">\u00d7</button>')+
+      '</span>';
   });
   if(activeTags.length)
     h+='<button class="linkbtn" id="clearTags" style="margin-left:4px">Clear</button>';
@@ -1697,6 +1738,14 @@ document.addEventListener("click",function(e){
     var aid=el.getAttribute("data-tagadd");
     var inp=document.querySelector('[data-tagnew="'+(window.CSS&&CSS.escape?CSS.escape(aid):aid)+'"]');
     if(inp&&addTag(aid,inp.value)){inp.value="";pushItem(aid);}
+    return;
+  }
+  if((el=e.target.closest("[data-tagpurge]"))){
+    var pname=el.getAttribute("data-tagpurge");
+    if(el.getAttribute("data-armed")==="1"){deleteTagEverywhere(pname);return;}
+    el.setAttribute("data-armed","1");
+    el.textContent="delete?";
+    el.title='Click again to remove "'+pname+'" from every problem';
     return;
   }
   if((el=e.target.closest("[data-tagclick]"))){

@@ -133,6 +133,20 @@ to a LeetCode search for that number, the same rule the generated problems use.
 Your entries carry a **mine** tag and have an **Edit** button; generated ones do
 not. Deleting asks once, in place.
 
+## Tags
+
+Every problem automatically carries its module name as a tag (teal chip). It
+cannot be removed — it is what makes "module" and your own tags filter the same
+way.
+
+- **Add**: open a problem's Notes panel, type in the tag box, press Enter.
+- **Filter**: click any chip. Several tags at once narrow the list (all must
+  match). **Clear** resets them.
+- **Remove from one problem**: the × on its chip in the Notes panel.
+- **Remove from everywhere**: the × on the chip in the tag bar. It asks once,
+  then strips the tag from every problem that has it. Notes, ticks, favourites
+  and repeat marks are untouched.
+
 ### Why this is stored in the database, not in curriculum.json
 
 `tools/build_site.py` overwrites `docs/data/curriculum.json` from scratch on
