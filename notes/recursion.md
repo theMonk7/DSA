@@ -588,7 +588,7 @@ first two terms — `O(n²)` pairs — and from there **every** later term is fo
 `path[-1] + path[-2]`), so verifying a candidate pair is a single `O(n)` scan. The three
 `break`s are what collapse a would-be `O(2^n)` cut-enumeration down to `O(n³)`.
 ```python
-def can_partition_k(nums, k):                      # LC 698 — pruning IS the problem
+def can_partition_k(nums, k):    TODO:                  # LC 698 — pruning IS the problem
     total = sum(nums)
     if total % k: return False                     # 1. arithmetic feasibility
     target = total // k
@@ -779,7 +779,7 @@ marking. Grid + "count regions / reachability" → plain DFS/BFS, no undo.
 
 ---
 
-## 10. Pattern 5 — Expression building & construction
+## 10. Pattern 5 — Expression building & construction TODO: From here down
 
 **Expression Add Operators (LC 282) — a Google hard; know it cold.** Insert `+ - *` between
 digits so the expression equals `target`. The hard part is `*` precedence: when you append `*4`
@@ -1521,7 +1521,7 @@ Exercises everything above: constraint sets (§9), MRV / most-constrained-variab
 """sudoku.py — read a 9x9 puzzle ('.' or 0 for blanks) from a file or stdin, solve it."""
 import sys
 
-def parse_board(text):
+def parse_board(text): TODO: MRV technique
     rows = [r.strip() for r in text.strip().splitlines() if r.strip()]
     if len(rows) != 9 or any(len(r) != 9 for r in rows):
         raise ValueError("board must be 9 lines of 9 chars ('.'/'0' or 1-9)")
