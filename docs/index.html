@@ -80,6 +80,64 @@ a{color:var(--teal)}
 #railScroll{overflow-y:auto;flex:1;padding:8px 8px 20px;min-height:0}
 .rail-label{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
   font-weight:600;padding:12px 8px 6px}
+#account{margin-top:12px}
+.gbtn{display:flex;align-items:center;gap:9px;width:100%;background:var(--surface);
+  border:1px solid var(--border-strong);border-radius:8px;padding:7px 11px;
+  font-size:13px;font-weight:500;color:var(--ink)}
+.gbtn:hover{background:var(--surface-2);border-color:var(--teal)}
+.gbtn svg{flex:none}
+.acct{display:flex;align-items:center;gap:9px}
+.avatar{width:28px;height:28px;border-radius:50%;flex:none;background:var(--teal-soft);
+  color:var(--teal-ink);display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.acct-mid{flex:1;min-width:0}
+.acct-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acct-sync{font-size:10.5px;color:var(--ink-3);display:flex;align-items:center;gap:4px}
+.acct-sync .sdot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex:none}
+.acct-sync.off .sdot{background:var(--ink-3)}
+.acct-sync.err .sdot{background:var(--red)}
+.linkbtn{background:none;border:0;padding:0;font-size:11px;color:var(--ink-3);
+  text-decoration:underline;text-underline-offset:2px}
+.linkbtn:hover{color:var(--ink)}
+.acct-note{font-size:11px;color:var(--ink-3);line-height:1.45;margin-top:7px}
+.merge-card{background:var(--surface);border:1px solid var(--amber-line);
+  border-radius:var(--radius);padding:14px 16px;margin-bottom:16px}
+.merge-card h3{font-size:14px;font-weight:600;margin:0 0 5px}
+.merge-card p{font-size:12.5px;color:var(--ink-2);margin:0 0 11px}
+
+/* custom content */
+.btn-add{background:var(--teal);border:1px solid var(--teal);color:#fff;border-radius:8px;
+  padding:7px 13px;font-size:13px;font-weight:600}
+:root[data-theme="dark"] .btn-add,
+:root:not([data-theme="light"]) .btn-add{color:#0e1319}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .btn-add{color:#fff}}
+.btn-add:hover{filter:brightness(1.08)}
+.topic-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tag.custom{color:var(--teal);border-color:color-mix(in srgb,var(--teal) 40%,transparent);
+  background:var(--teal-soft)}
+#modalBack{position:fixed;inset:0;background:rgba(10,14,20,.5);z-index:120;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+#modalBack[hidden]{display:none!important}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);width:100%;max-width:440px;max-height:86vh;
+  overflow-y:auto;padding:20px}
+.modal h2{font-family:var(--display);font-size:19px;font-weight:600;margin:0 0 4px}
+.modal .modal-sub{font-size:12.5px;color:var(--ink-3);margin:0 0 16px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;
+  font-size:13.5px;color:var(--ink)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--teal);
+  outline-offset:-1px;border-color:transparent}
+.field .hint{font-size:11px;color:var(--ink-3);margin-top:4px}
+.field-row{display:flex;gap:10px}
+.field-row .field{flex:1;min-width:0}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.modal-foot .spacer{flex:1}
+.err-msg{color:var(--red);font-size:12px;margin-top:8px;min-height:15px}
 .nav-item{display:block;width:100%;text-align:left;background:none;border:0;
   padding:7px 9px;border-radius:7px;margin-bottom:1px}
 .nav-item:hover{background:var(--surface-3)}
@@ -293,6 +351,7 @@ a.tag{text-decoration:none}
     <div id="railHead">
       <p class="brand">Pattern Ledger</p>
       <div class="brand-sub">DSA prep tracker</div>
+      <div id="account"></div>
     </div>
     <nav id="railScroll"></nav>
   </aside>
@@ -320,6 +379,8 @@ a.tag{text-decoration:none}
 (function(){
 "use strict";
 
+var BASE=null;                 // generated from notes/*.md — never written to
+var CUSTOM={topics:[],groups:[],items:[]};   // viewer's own modules and problems
 var DATA=null, STATE={}, store=null;
 var route={view:"dash",topic:null,tab:"concepts"};
 var filter="all", query="", openSec={}, openDetail={}, noteTimers={};
@@ -335,23 +396,180 @@ function st(id){return STATE[id]||{done:false,note:""};}
 function isDone(id){return !!st(id).done;}
 
 /* ---------- storage: artifact db when hosted by Claude, else localStorage ---------- */
-var LS_KEY="pattern-ledger-v1";
+var LS_KEY="pattern-ledger-v1", LS_CUSTOM="pattern-ledger-custom-v1";
+function emptyCustom(){return {topics:[],groups:[],items:[]};}
 function localStore(){
-  function readAll(){
-    try{var r=localStorage.getItem(LS_KEY);return r?JSON.parse(r):{};}catch(e){return {};}
+  function readKey(k,fallback){
+    try{var r=localStorage.getItem(k);return r?JSON.parse(r):fallback;}catch(e){return fallback;}
   }
-  function writeAll(m){
-    try{localStorage.setItem(LS_KEY,JSON.stringify(m));return true;}catch(e){return false;}
+  function writeKey(k,v){
+    try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}
   }
   return {
     kind:"local",
-    load:function(){return Promise.resolve(readAll());},
-    save:function(id,rec){var m=readAll();m[id]=rec;
-      return Promise.resolve(writeAll(m));},
-    bulk:function(map){return Promise.resolve(writeAll(map));},
+    load:function(){return Promise.resolve(readKey(LS_KEY,{}));},
+    save:function(id,rec){var m=readKey(LS_KEY,{});m[id]=rec;
+      return Promise.resolve(writeKey(LS_KEY,m));},
+    bulk:function(map){return Promise.resolve(writeKey(LS_KEY,map));},
+    loadCustom:function(){return Promise.resolve(readKey(LS_CUSTOM,emptyCustom()));},
+    saveCustom:function(c){return Promise.resolve(writeKey(LS_CUSTOM,c));},
     watch:function(){}
   };
 }
+/* ---- GitHub Gist sync: progress stored as a secret gist in your own account ----
+   No third-party service, no account to create, nothing that expires or pauses.
+   You paste a token scoped to gists only; it is kept in this browser's
+   localStorage and sent to api.github.com and nowhere else. */
+var GH={token:null,gistId:null,user:null};
+var GH_TOKEN_KEY="pattern-ledger-gh-token", GH_GIST_KEY="pattern-ledger-gist-id";
+var GIST_FILE="pattern-ledger.json";
+var GIST_DESC="Pattern Ledger \u2014 DSA study progress";
+var GH_TOKEN_URL="https://github.com/settings/tokens/new?scopes=gist&description=Pattern%20Ledger";
+
+function ghReadCreds(){
+  try{
+    GH.token=localStorage.getItem(GH_TOKEN_KEY)||null;
+    GH.gistId=localStorage.getItem(GH_GIST_KEY)||null;
+  }catch(e){ /* private window or blocked storage: stay disconnected */ }
+}
+function ghWriteCreds(){
+  try{
+    if(GH.token)localStorage.setItem(GH_TOKEN_KEY,GH.token);
+    else localStorage.removeItem(GH_TOKEN_KEY);
+    if(GH.gistId)localStorage.setItem(GH_GIST_KEY,GH.gistId);
+    else localStorage.removeItem(GH_GIST_KEY);
+  }catch(e){ /* nothing we can do; the session still works in memory */ }
+}
+function ghApi(path,opts){
+  opts=opts||{};
+  var headers={"Accept":"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"};
+  if(GH.token)headers.Authorization="Bearer "+GH.token;
+  if(opts.body)headers["Content-Type"]="application/json";
+  return fetch("https://api.github.com"+path,{
+    method:opts.method||"GET",
+    headers:headers,
+    body:opts.body?JSON.stringify(opts.body):undefined
+  }).then(function(r){
+    if(r.status===401)return Promise.reject({code:"bad_token"});
+    if(r.status===403||r.status===429)return Promise.reject({code:"rate_limited"});
+    if(r.status===404)return Promise.reject({code:"not_found"});
+    if(!r.ok)return Promise.reject({code:"http_"+r.status});
+    return r.status===204?null:r.json();
+  },function(){
+    return Promise.reject({code:"offline"});
+  });
+}
+function ghPayload(){
+  return {app:"pattern-ledger",version:2,updatedAt:new Date().toISOString(),
+          state:STATE,custom:CUSTOM};
+}
+function ghFiles(obj){
+  var f={}; f[GIST_FILE]={content:JSON.stringify(obj,null,1)};
+  return f;
+}
+function ghParse(text){
+  var out={state:{},custom:emptyCustom()};
+  try{
+    var j=JSON.parse(text);
+    if(j&&typeof j==="object"){
+      if(j.state&&typeof j.state==="object")out.state=j.state;
+      if(j.custom&&typeof j.custom==="object"){
+        out.custom={topics:j.custom.topics||[],groups:j.custom.groups||[],
+                    items:j.custom.items||[]};
+      }
+    }
+  }catch(e){ /* a hand-edited gist that no longer parses: start empty rather than crash */ }
+  return out;
+}
+/* Find the app's gist, or make one. Never touches any other gist. */
+function ghFindOrCreateGist(allowRetry){
+  if(GH.gistId){
+    return ghApi("/gists/"+GH.gistId).catch(function(e){
+      if(e&&e.code==="not_found"&&allowRetry!==false){
+        GH.gistId=null;            // deleted on github.com: fall through and make a new one
+        return ghFindOrCreateGist(false);
+      }
+      return Promise.reject(e);
+    });
+  }
+  return ghApi("/gists?per_page=100").then(function(list){
+    for(var i=0;i<list.length;i++){
+      if(list[i].files&&list[i].files[GIST_FILE]){GH.gistId=list[i].id;return list[i];}
+    }
+    return ghApi("/gists",{method:"POST",body:{
+      description:GIST_DESC,"public":false,files:ghFiles(ghPayload())}})
+      .then(function(g){GH.gistId=g.id;return g;});
+  });
+}
+function ghConnect(token){
+  GH.token=(token||"").trim();
+  if(!GH.token)return Promise.reject({code:"bad_token"});
+  return ghApi("/user").then(function(u){
+    GH.user={login:u.login,name:u.name||u.login,avatar:u.avatar_url};
+    return ghFindOrCreateGist(true);
+  }).then(function(){
+    ghWriteCreds();
+    return true;
+  });
+}
+function ghDisconnect(){
+  GH.token=null; GH.gistId=null; GH.user=null;
+  ghWriteCreds();
+  store=localStore();
+  Promise.all([store.load(),store.loadCustom()]).then(function(r){
+    STATE=r[0]||{}; CUSTOM=r[1]||emptyCustom();
+    rebuildData(); render();
+    toast("Disconnected. Showing this browser's copy; the gist is untouched.");
+  });
+}
+function ghErrText(e){
+  var c=e&&e.code;
+  if(c==="bad_token")return "GitHub rejected that token. Check it has the gist scope and has not expired.";
+  if(c==="rate_limited")return "GitHub is rate-limiting this token. Try again shortly.";
+  if(c==="offline")return "Could not reach api.github.com.";
+  if(c==="not_found")return "That gist no longer exists.";
+  return "GitHub error"+(c?(" ("+c+")"):"")+".";
+}
+
+/* One gist file holds progress and custom modules, so both reads share one request. */
+function gistStore(){
+  var fetchP=null, saveTimer=null;
+  function fetchAll(){
+    if(!fetchP){
+      fetchP=ghApi("/gists/"+GH.gistId).then(function(g){
+        var f=g.files&&g.files[GIST_FILE];
+        if(!f)return {state:{},custom:emptyCustom()};
+        if(f.truncated&&f.raw_url){
+          return fetch(f.raw_url).then(function(r){return r.text();}).then(ghParse);
+        }
+        return ghParse(f.content||"");
+      });
+    }
+    return fetchP;
+  }
+  function flush(){
+    fetchP=null;   // our own write is now the truth; drop the cached read
+    return ghApi("/gists/"+GH.gistId,{method:"PATCH",body:{files:ghFiles(ghPayload())}})
+      .then(function(){return true;},function(){return false;});
+  }
+  function schedule(){
+    clearTimeout(saveTimer);
+    return new Promise(function(res){
+      saveTimer=setTimeout(function(){flush().then(res);},1200);
+    });
+  }
+  return {
+    kind:"gist",
+    label:(GH.user&&GH.user.login)||"gist",
+    load:function(){return fetchAll().then(function(p){return p.state;});},
+    loadCustom:function(){return fetchAll().then(function(p){return p.custom;});},
+    save:function(){return schedule();},
+    bulk:function(){return flush();},
+    saveCustom:function(){return flush();},
+    watch:function(){}
+  };
+}
+
 function dbStore(db){
   return {
     kind:"db",
@@ -378,8 +596,244 @@ function dbStore(db){
         })();
       });
     },
+    loadCustom:function(){
+      return db.collection("meta").doc("custom").get().then(function(d){
+        if(!d.exists)return emptyCustom();
+        var v=d.data()||{};
+        return {topics:v.topics||[],groups:v.groups||[],items:v.items||[]};
+      },function(){return emptyCustom();});
+    },
+    saveCustom:function(c){
+      return db.collection("meta").doc("custom")
+        .set({topics:c.topics,groups:c.groups,items:c.items,updatedAt:Date.now()})
+        .then(function(){return true;},function(){return false;});
+    },
     watch:function(){}
   };
+}
+
+/* ---------- custom modules and problems ----------
+   BASE is the generated curriculum (rebuilt from notes/*.md by tools/build_site.py,
+   so anything written into it by hand is lost on the next build). Everything the
+   viewer adds lives in CUSTOM, which is stored in whichever database is active,
+   and is folded into BASE at load time to produce DATA. */
+function newId(prefix){
+  return prefix+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,7);
+}
+function rebuildData(){
+  var byTopic={}, topics=[];
+  BASE.topics.forEach(function(t){
+    var copy={id:t.id,title:t.title,concepts:t.concepts,
+      problems:t.problems.map(function(g){
+        return {id:g.id,title:g.title,source:g.source,items:g.items.slice()};
+      })};
+    byTopic[t.id]=copy; topics.push(copy);
+  });
+  CUSTOM.topics.forEach(function(ct){
+    if(byTopic[ct.id])return;
+    var copy={id:ct.id,title:ct.title,concepts:[],problems:[],custom:true};
+    byTopic[ct.id]=copy; topics.push(copy);
+  });
+  var byGroup={};
+  topics.forEach(function(t){t.problems.forEach(function(g){byGroup[g.id]=g;});});
+  CUSTOM.groups.forEach(function(cg){
+    if(byGroup[cg.id])return;
+    var t=byTopic[cg.topicId]; if(!t)return;
+    var g={id:cg.id,title:cg.title,source:"custom",custom:true,topicId:cg.topicId,items:[]};
+    byGroup[cg.id]=g; t.problems.push(g);
+  });
+  CUSTOM.items.forEach(function(ci){
+    var g=byGroup[ci.groupId];
+    if(!g){
+      var t=byTopic[ci.topicId]; if(!t)return;
+      var fid="custom-"+ci.topicId;
+      g=byGroup[fid];
+      if(!g){
+        g={id:fid,title:"My problems",source:"custom",custom:true,topicId:ci.topicId,items:[]};
+        byGroup[fid]=g; t.problems.push(g);
+      }
+    }
+    g.items.push(ci);
+  });
+  DATA={topics:topics};
+}
+function persistCustom(msg){
+  rebuildData(); render();
+  if(!store.saveCustom){toast("This view cannot save custom content.");return;}
+  store.saveCustom(CUSTOM).then(function(ok){
+    toast(ok?(msg||"Saved."):"Could not save — your change may be lost on reload.");
+  });
+}
+function findTopic(id){
+  for(var i=0;i<DATA.topics.length;i++)if(DATA.topics[i].id===id)return DATA.topics[i];
+  return null;
+}
+function customItem(id){
+  for(var i=0;i<CUSTOM.items.length;i++)if(CUSTOM.items[i].id===id)return CUSTOM.items[i];
+  return null;
+}
+
+/* ---------- modal ---------- */
+var modalBack=null;
+function closeModal(){
+  if(modalBack){modalBack.hidden=true;modalBack.innerHTML="";}
+}
+function openModal(html,onSubmit){
+  if(!modalBack){
+    modalBack=document.createElement("div");
+    modalBack.id="modalBack"; modalBack.hidden=true;
+    document.body.appendChild(modalBack);
+    modalBack.addEventListener("click",function(e){
+      if(e.target===modalBack)closeModal();
+    });
+  }
+  modalBack.innerHTML='<form class="modal" id="modalForm" autocomplete="off">'+html+'</form>';
+  modalBack.hidden=false;
+  var form=modalBack.querySelector("#modalForm");
+  form.addEventListener("submit",function(e){
+    e.preventDefault();
+    var err=onSubmit(form);
+    if(err){var el=form.querySelector(".err-msg");if(el)el.textContent=err;}
+  });
+  var first=form.querySelector("input,select,textarea");
+  if(first)first.focus();
+}
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape"&&modalBack&&!modalBack.hidden)closeModal();
+});
+
+function topicOptions(sel){
+  return DATA.topics.map(function(t){
+    return '<option value="'+esc(t.id)+'"'+(t.id===sel?" selected":"")+'>'+esc(t.title)+'</option>';
+  }).join("");
+}
+function groupOptions(topicId,sel){
+  var t=findTopic(topicId);
+  var opts=(t?t.problems:[]).map(function(g){
+    return '<option value="'+esc(g.id)+'"'+(g.id===sel?" selected":"")+'>'+esc(g.title)+'</option>';
+  }).join("");
+  return opts+'<option value="__new__"'+(sel==="__new__"?" selected":"")+'>+ New section…</option>';
+}
+
+function moduleForm(existing){
+  var isEdit=!!existing;
+  openModal(
+    '<h2>'+(isEdit?"Rename module":"New module")+'</h2>'+
+    '<p class="modal-sub">'+(isEdit?"Only the name changes; its problems stay put."
+      :"A module is a topic of your own, alongside the ones built from your notes.")+'</p>'+
+    '<div class="field"><label for="mTitle">Module name</label>'+
+    '<input id="mTitle" name="title" required maxlength="60" value="'+esc(isEdit?existing.title:"")+'" placeholder="e.g. Segment Trees"></div>'+
+    '<div class="err-msg"></div>'+
+    '<div class="modal-foot">'+
+      (isEdit?'<button type="button" class="btn-danger" data-delmodule="'+esc(existing.id)+'">Delete</button>':'')+
+      '<span class="spacer"></span>'+
+      '<button type="button" class="btn-ghost" data-close="1">Cancel</button>'+
+      '<button type="submit" class="btn-add">'+(isEdit?"Save":"Create module")+'</button>'+
+    '</div>',
+    function(form){
+      var title=form.title.value.trim();
+      if(!title)return "Give the module a name.";
+      if(isEdit){
+        for(var i=0;i<CUSTOM.topics.length;i++)
+          if(CUSTOM.topics[i].id===existing.id)CUSTOM.topics[i].title=title;
+        closeModal(); persistCustom("Module renamed.");
+      }else{
+        var id=newId("mod");
+        CUSTOM.topics.push({id:id,title:title});
+        closeModal();
+        route={view:"topic",topic:id,tab:"problems"};
+        persistCustom("Module created.");
+      }
+      return null;
+    });
+}
+
+function problemForm(existing,topicId){
+  var isEdit=!!existing;
+  var tId=isEdit?existing.topicId:(topicId||(DATA.topics[0]&&DATA.topics[0].id));
+  openModal(
+    '<h2>'+(isEdit?"Edit problem":"Add problem")+'</h2>'+
+    '<p class="modal-sub">'+(isEdit?"":"Added problems are stored in your database, not in the generated notes data, so a rebuild never removes them.")+'</p>'+
+    '<div class="field"><label for="pTitle">Problem</label>'+
+    '<input id="pTitle" name="title" required maxlength="140" value="'+esc(isEdit?existing.title:"")+'" placeholder="e.g. Range Sum Query — Mutable"></div>'+
+    '<div class="field-row">'+
+      '<div class="field"><label for="pTopic">Module</label>'+
+      '<select id="pTopic" name="topic" data-topicsel="1">'+topicOptions(tId)+'</select></div>'+
+      '<div class="field"><label for="pTier">Level</label><select id="pTier" name="tier">'+
+        ['','basic','core','pro'].map(function(v){
+          var lab=v?({basic:"Basic",core:"Core",pro:"Pro"})[v]:"—";
+          return '<option value="'+v+'"'+((isEdit&&existing.tier===v)||(!isEdit&&!v)?" selected":"")+'>'+lab+'</option>';
+        }).join("")+'</select></div>'+
+    '</div>'+
+    '<div class="field"><label for="pGroup">Section</label>'+
+    '<select id="pGroup" name="group" data-groupsel="1">'+groupOptions(tId,isEdit?existing.groupId:null)+'</select>'+
+    '<input style="margin-top:7px" id="pNewGroup" name="newGroup" maxlength="60" placeholder="New section name" hidden></div>'+
+    '<div class="field-row">'+
+      '<div class="field"><label for="pLc">LeetCode number</label>'+
+      '<input id="pLc" name="lc" maxlength="12" inputmode="numeric" value="'+esc(isEdit&&existing.lc?existing.lc:"")+'" placeholder="optional"></div>'+
+      '<div class="field"><label for="pUrl">Link</label>'+
+      '<input id="pUrl" name="url" type="url" value="'+esc(isEdit&&existing.url?existing.url:"")+'" placeholder="optional"></div>'+
+    '</div>'+
+    '<div class="field"><div class="hint">With a number and no link, the problem links to a LeetCode search for that number.</div></div>'+
+    '<div class="err-msg"></div>'+
+    '<div class="modal-foot">'+
+      (isEdit?'<button type="button" class="btn-danger" data-delproblem="'+esc(existing.id)+'">Delete</button>':'')+
+      '<span class="spacer"></span>'+
+      '<button type="button" class="btn-ghost" data-close="1">Cancel</button>'+
+      '<button type="submit" class="btn-add">'+(isEdit?"Save":"Add problem")+'</button>'+
+    '</div>',
+    function(form){
+      var title=form.title.value.trim();
+      if(!title)return "Give the problem a name.";
+      var topic=form.topic.value;
+      var group=form.group.value;
+      var lc=form.lc.value.replace(/[^0-9]/g,"");
+      var url=form.url.value.trim();
+      if(group==="__new__"){
+        var gn=form.newGroup.value.trim();
+        if(!gn)return "Name the new section, or pick an existing one.";
+        var gid=newId("sec");
+        CUSTOM.groups.push({id:gid,topicId:topic,title:gn});
+        group=gid;
+      }
+      var urlKind=null;
+      if(url)urlKind="direct";
+      else if(lc){url="https://leetcode.com/problemset/?search="+lc;urlKind="search";}
+      var rec={id:isEdit?existing.id:newId("prob"),title:title,topicId:topic,groupId:group,
+        lc:lc||null,url:url||null,urlKind:urlKind,tier:form.tier.value||null,
+        source:"custom",custom:true};
+      if(isEdit){
+        for(var i=0;i<CUSTOM.items.length;i++)
+          if(CUSTOM.items[i].id===existing.id)CUSTOM.items[i]=rec;
+      }else{
+        CUSTOM.items.push(rec);
+      }
+      closeModal();
+      route={view:"topic",topic:topic,tab:"problems"};
+      persistCustom(isEdit?"Problem updated.":"Problem added.");
+      return null;
+    });
+}
+
+function deleteModule(id){
+  CUSTOM.topics=CUSTOM.topics.filter(function(t){return t.id!==id;});
+  var gone={};
+  CUSTOM.groups.filter(function(g){return g.topicId===id;}).forEach(function(g){gone[g.id]=1;});
+  CUSTOM.groups=CUSTOM.groups.filter(function(g){return g.topicId!==id;});
+  CUSTOM.items=CUSTOM.items.filter(function(it){
+    var drop=it.topicId===id||gone[it.groupId];
+    if(drop)delete STATE[it.id];
+    return !drop;
+  });
+  closeModal();
+  route={view:"dash",topic:null,tab:route.tab};
+  persistCustom("Module deleted.");
+}
+function deleteProblem(id){
+  CUSTOM.items=CUSTOM.items.filter(function(it){return it.id!==id;});
+  delete STATE[id];
+  closeModal();
+  persistCustom("Problem deleted.");
 }
 
 /* ---------- counting ---------- */
@@ -450,7 +904,16 @@ function ring(p){
 }
 function renderDash(){
   var a=allCount();
-  var h='<h1 class="page-title">Progress</h1><p class="page-sub">'+
+  var h="";
+  if(pendingMerge){
+    h+='<div class="merge-card"><h3>This browser has progress your account does not</h3>'+
+      '<p>Your account has '+pendingMerge.nCloud+' tracked items; this browser has '+
+      pendingMerge.nLocal+'. Merging keeps both — ticks combine, and a note is only '+
+      'copied up where your account has none for that item.</p>'+
+      '<div class="confirm-row"><button class="btn-ghost" id="mergeYes">Merge them</button>'+
+      '<button class="btn-ghost" id="mergeNo">Keep account only</button></div></div>';
+  }
+  h+='<h1 class="page-title">Progress</h1><p class="page-sub">'+
     DATA.topics.length+' topics · '+a.ctotal+' concept sections from your notes · '+
     a.ptotal+' problems</p>';
   h+='<div class="hero"><div class="ring-wrap">'+ring(pct(a.done,a.total))+
@@ -473,10 +936,18 @@ function renderDash(){
       '<span><span class="dot p"></span>'+c.p.total+' problems</span></div></button>';
   });
   h+='</div>';
-  h+='<div class="danger-card"><h3>Your data</h3><p>'+
-    (store&&store.kind==="local"
-      ? 'Progress and notes are saved in this browser only. Export a backup before clearing site data, or to move your progress to another machine.'
-      : 'Progress and notes are saved to this page&rsquo;s database and follow you across devices.')+
+  h+='<div class="topic-actions" style="margin-top:16px">'+
+     '<button class="btn-add" id="newModuleBtn">+ New module</button>'+
+     '<button class="btn-ghost" id="addProblemBtn">+ Add problem</button></div>';
+  var dataCopy;
+  if(store&&store.kind==="gist")
+    dataCopy='Synced to a secret gist in <strong>'+esc((GH.user&&GH.user.login)||"your GitHub account")+
+      '</strong>. Open this site in any browser, connect the same token, and your progress is there.';
+  else if(store&&store.kind==="db")
+    dataCopy='Progress and notes are saved to this page&rsquo;s database and follow you across devices.';
+  else
+    dataCopy='Saved in this browser only. <strong>Sync with GitHub</strong> in the sidebar keeps it in a secret gist instead, so it follows you across browsers.';
+  h+='<div class="danger-card"><h3>Your data</h3><p>'+dataCopy+
     '</p><div class="confirm-row">'+
       '<button class="btn-ghost" id="exportBtn">Export backup</button>'+
       '<button class="btn-ghost" id="importBtn">Import backup</button>'+
@@ -561,6 +1032,7 @@ function problemRow(it){
   if(it.lc)tags+='<span class="tag">LC '+esc(it.lc)+'</span>';
   if(it.url)tags+='<a class="tag lc" href="'+esc(it.url)+'" target="_blank" rel="noopener">'+
     (it.urlKind==="direct"?"LeetCode ↗":"Find on LC ↗")+'</a>';
+  if(it.custom)tags+='<span class="tag custom">mine</span>';
   if(hasNote)tags+='<span class="tag has-note">note</span>';
   var h='<div class="row'+(done?" is-done":"")+'">'+
     '<button class="tick" data-tick="'+esc(it.id)+'" aria-pressed="'+done+'" aria-label="Mark solved">'+
@@ -568,7 +1040,10 @@ function problemRow(it){
     '<div class="row-mid"><div class="row-title">'+esc(it.title)+'</div>'+
       (it.hint?'<div class="row-hint">'+esc(it.hint)+'</div>':'')+
       (tags?'<div class="row-tags">'+tags+'</div>':'')+'</div>'+
-    '<div class="row-actions"><button class="mini" data-detail="'+esc(it.id)+'" aria-expanded="'+open+'">Notes</button></div></div>';
+    '<div class="row-actions">'+
+      (it.custom?'<button class="mini" data-editproblem="'+esc(it.id)+'">Edit</button>':'')+
+      '<button class="mini" data-detail="'+esc(it.id)+'" aria-expanded="'+open+'">Notes</button>'+
+    '</div></div>';
   if(open)h+='<div class="detail">'+noteBlock(it.id,it.url)+'</div>';
   return h;
 }
@@ -602,6 +1077,11 @@ function renderTopic(){
       '<span class="tab-n">'+c.c.done+'/'+c.c.total+'</span></button>'+
     '<button role="tab" data-tab="problems" aria-selected="'+(tab==="problems")+'">Problems'+
       '<span class="tab-n">'+c.p.done+'/'+c.p.total+'</span></button></div>';
+
+  h+='<div class="topic-actions">'+
+     '<button class="btn-add" data-addproblem="'+esc(t.id)+'">+ Add problem</button>'+
+     (t.custom?'<button class="btn-ghost" data-editmodule="'+esc(t.id)+'">Rename or delete module</button>':'')+
+     '</div>';
 
   var shown=0;
   if(tab==="concepts"){
@@ -646,8 +1126,144 @@ function renderTopic(){
   highlightIn(view);
 }
 
+/* ---------- account panel ---------- */
+var GH_MARK='<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">'+
+ '<path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 '+
+ '0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 '+
+ '1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 '+
+ '0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 '+
+ '2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 '+
+ '3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>';
+
+function renderAccount(){
+  var el=$("#account");
+  if(!el)return;
+  if(store&&store.kind==="db"){
+    el.innerHTML='<div class="acct-sync"><span class="sdot"></span>Synced to this artifact</div>';
+    return;
+  }
+  if(store&&store.kind==="gist"&&GH.user){
+    var u=GH.user;
+    var pic=u.avatar
+      ? '<img src="'+esc(u.avatar)+'" alt="" referrerpolicy="no-referrer">'
+      : esc((u.login||"?")[0].toUpperCase());
+    el.innerHTML='<div class="acct"><div class="avatar">'+pic+'</div>'+
+      '<div class="acct-mid"><div class="acct-name" title="'+esc(u.login)+'">'+esc(u.name||u.login)+'</div>'+
+      '<div class="acct-sync"><span class="sdot"></span>Synced to your gist</div></div>'+
+      '<button class="linkbtn" id="ghDisconnect">Disconnect</button></div>'+
+      '<div class="acct-note"><a href="https://gist.github.com/'+esc(u.login)+'" target="_blank" rel="noopener">Your gists \u2197</a></div>';
+    return;
+  }
+  el.innerHTML='<button class="gbtn" id="ghConnectBtn">'+GH_MARK+'Sync with GitHub</button>'+
+    '<div class="acct-note">Saved in this browser until you connect.</div>';
+}
+
+function connectForm(){
+  openModal(
+    '<h2>Sync with GitHub</h2>'+
+    '<p class="modal-sub">Your progress is kept as a secret gist in your own GitHub account, '+
+    'so it loads on any browser you connect. Nothing is sent anywhere else.</p>'+
+    '<div class="field"><label for="ghTok">Personal access token</label>'+
+    '<input id="ghTok" name="token" type="password" required placeholder="ghp_\u2026" autocomplete="off" spellcheck="false">'+
+    '<div class="hint"><a href="'+GH_TOKEN_URL+'" target="_blank" rel="noopener">Create one on GitHub \u2197</a> '+
+    '\u2014 the link preselects the only permission needed, <strong>gist</strong>. '+
+    'Give it an expiry you are happy with, generate, and paste it here.</div></div>'+
+    '<div class="field"><div class="hint">'+
+    'The token is stored in this browser only and is sent to api.github.com and nowhere else. '+
+    'It can read and write your gists and nothing else \u2014 no repository access. '+
+    'Revoke it any time from GitHub settings. Do not commit it to the repo.'+
+    '</div></div>'+
+    '<div class="err-msg"></div>'+
+    '<div class="modal-foot"><span class="spacer"></span>'+
+    '<button type="button" class="btn-ghost" data-close="1">Cancel</button>'+
+    '<button type="submit" class="btn-add" id="ghGo">Connect</button></div>',
+    function(form){
+      var tok=form.token.value.trim();
+      if(!tok)return "Paste a token first.";
+      var btn=form.querySelector("#ghGo");
+      btn.disabled=true; btn.textContent="Connecting\u2026";
+      ghConnect(tok).then(function(){
+        closeModal();
+        adoptGist();
+      },function(e){
+        btn.disabled=false; btn.textContent="Connect";
+        GH.token=null;
+        var el=form.querySelector(".err-msg");
+        if(el)el.textContent=ghErrText(e);
+      });
+      return null;
+    });
+}
+
+var pendingMerge=null;   // {local:{...}} shown as a choice on the dashboard
+
+function countEntries(m){
+  return Object.keys(m||{}).filter(function(k){
+    return m[k]&&(m[k].done||(m[k].note&&m[k].note.trim()));
+  }).length;
+}
+function customSize(c){
+  return ((c&&c.topics)||[]).length+((c&&c.items)||[]).length;
+}
+
+/* First connect: decide what happens to work already in this browser. */
+function adoptGist(){
+  var localMap=STATE, localCustom=CUSTOM;
+  var gs=gistStore();
+  toast("Reading your gist\u2026");
+  Promise.all([gs.load(),gs.loadCustom()]).then(function(r){
+    var cloud=r[0], cloudCustom=r[1];
+    var nLocal=countEntries(localMap), nCloud=countEntries(cloud);
+    store=gs;
+    if(customSize(localCustom)&&!customSize(cloudCustom)){
+      CUSTOM=localCustom;
+    }else{
+      CUSTOM=cloudCustom;
+    }
+    if(nLocal&&!nCloud){
+      STATE=localMap;
+      rebuildData(); render();
+      store.bulk().then(function(ok){
+        toast(ok?("Uploaded "+nLocal+" items to your gist."):"Could not write to the gist.");
+        renderAccount();
+      });
+      return;
+    }
+    STATE=cloud;
+    rebuildData(); render();
+    if(nLocal&&nCloud){
+      pendingMerge={local:localMap,nLocal:nLocal,nCloud:nCloud};
+      route={view:"dash",topic:null,tab:route.tab};
+      render();
+    }else{
+      if(customSize(CUSTOM)!==customSize(cloudCustom))store.saveCustom();
+      toast("Connected. "+nCloud+" items loaded from your gist.");
+    }
+  },function(e){
+    store=localStore();
+    renderAccount();
+    toast(ghErrText(e));
+  });
+}
+
+function applyMerge(){
+  if(!pendingMerge)return;
+  var local=pendingMerge.local, added=0;
+  Object.keys(local).forEach(function(k){
+    var l=local[k], c=STATE[k];
+    if(!l)return;
+    if(!c){STATE[k]={done:!!l.done,note:l.note||""};added++;return;}
+    if(l.done&&!c.done){c.done=true;added++;}
+    if(l.note&&l.note.trim()&&!(c.note&&c.note.trim())){c.note=l.note;added++;}
+  });
+  pendingMerge=null;
+  render();
+  store.bulk(STATE).then(function(){toast("Merged. "+added+" change"+(added===1?"":"s")+" added from this browser.");});
+}
+
 function render(){
   renderRail();
+  renderAccount();
   if(route.view==="dash")renderDash();else renderTopic();
 }
 
@@ -691,8 +1307,8 @@ function blobDownload(payload){
   toast("Backup downloaded.");
 }
 function exportBackup(){
-  var payload=JSON.stringify({app:"pattern-ledger",version:1,
-    exportedAt:new Date().toISOString(),state:STATE},null,2);
+  var payload=JSON.stringify({app:"pattern-ledger",version:2,
+    exportedAt:new Date().toISOString(),state:STATE,custom:CUSTOM},null,2);
   // Hosted on claude.ai the frame blocks plain downloads; the capability handles it there.
   if(window.claude&&window.claude.use){
     window.claude.use("downloads").then(function(dl){
@@ -719,7 +1335,21 @@ function importBackup(file){
           STATE[k]={done:!!v.done,note:typeof v.note==="string"?v.note:""};n++;
         }
       });
-      store.bulk(STATE).then(function(){render();toast("Imported "+n+" items.");});
+      var nc=0;
+      if(j&&j.custom&&typeof j.custom==="object"){
+        var inc=j.custom;
+        var have={};
+        CUSTOM.topics.forEach(function(t){have[t.id]=1;});
+        CUSTOM.groups.forEach(function(g){have[g.id]=1;});
+        CUSTOM.items.forEach(function(it){have[it.id]=1;});
+        (inc.topics||[]).forEach(function(t){if(t&&t.id&&!have[t.id]){CUSTOM.topics.push(t);nc++;}});
+        (inc.groups||[]).forEach(function(g){if(g&&g.id&&!have[g.id])CUSTOM.groups.push(g);});
+        (inc.items||[]).forEach(function(it){if(it&&it.id&&!have[it.id]){CUSTOM.items.push(it);nc++;}});
+      }
+      rebuildData();
+      Promise.all([store.bulk(STATE),store.saveCustom?store.saveCustom(CUSTOM):null])
+        .then(function(){render();
+          toast("Imported "+n+" items"+(nc?(" and "+nc+" of your own entries"):"")+".");});
     }catch(e){toast("That file is not a Pattern Ledger backup.");}
   };
   fr.readAsText(file);
@@ -760,6 +1390,40 @@ document.addEventListener("click",function(e){
   if(e.target.id==="resetNo"){renderDash();return;}
   if(e.target.id==="exportBtn"){exportBackup();return;}
   if(e.target.id==="importBtn"){$("#importFile").click();return;}
+  if(e.target.id==="newModuleBtn"){moduleForm(null);return;}
+  if(e.target.id==="addProblemBtn"){problemForm(null,route.topic);return;}
+  if((el=e.target.closest("[data-addproblem]"))){problemForm(null,el.getAttribute("data-addproblem"));return;}
+  if((el=e.target.closest("[data-editproblem]"))){
+    var ci=customItem(el.getAttribute("data-editproblem"));
+    if(ci)problemForm(ci,ci.topicId);
+    return;
+  }
+  if((el=e.target.closest("[data-editmodule]"))){
+    var tid=el.getAttribute("data-editmodule");
+    var ct=null;
+    for(var i2=0;i2<CUSTOM.topics.length;i2++)if(CUSTOM.topics[i2].id===tid)ct=CUSTOM.topics[i2];
+    if(ct)moduleForm(ct);
+    return;
+  }
+  if((el=e.target.closest("[data-delmodule]"))){
+    var dm=el.getAttribute("data-delmodule");
+    if(el.getAttribute("data-armed")==="1"){deleteModule(dm);return;}
+    el.setAttribute("data-armed","1");
+    el.textContent="Really delete — this removes its problems";
+    return;
+  }
+  if((el=e.target.closest("[data-delproblem]"))){
+    var dp=el.getAttribute("data-delproblem");
+    if(el.getAttribute("data-armed")==="1"){deleteProblem(dp);return;}
+    el.setAttribute("data-armed","1");
+    el.textContent="Really delete";
+    return;
+  }
+  if(e.target.closest("[data-close]")){closeModal();return;}
+  if(e.target.closest("#ghConnectBtn")){connectForm();return;}
+  if(e.target.id==="ghDisconnect"){ghDisconnect();return;}
+  if(e.target.id==="mergeYes"){applyMerge();return;}
+  if(e.target.id==="mergeNo"){pendingMerge=null;render();toast("Keeping your account's progress.");return;}
   if(e.target.id==="menuBtn"){$("#rail").classList.add("open");$("#scrim").classList.add("show");return;}
   if(e.target.id==="scrim"){closeRail();return;}
   if(e.target.id==="themeBtn"){
@@ -776,6 +1440,25 @@ function closeRail(){$("#rail").classList.remove("open");$("#scrim").classList.r
 $("#importFile").addEventListener("change",function(e){
   if(e.target.files&&e.target.files[0])importBackup(e.target.files[0]);
   e.target.value="";
+});
+
+document.addEventListener("change",function(e){
+  if(!modalBack||modalBack.hidden)return;
+  var form=modalBack.querySelector("#modalForm");
+  if(!form)return;
+  if(e.target.getAttribute("data-topicsel")){
+    var gs=form.querySelector("[data-groupsel]");
+    if(gs)gs.innerHTML=groupOptions(e.target.value,null);
+    var ng=form.querySelector("#pNewGroup");
+    if(ng)ng.hidden=true;
+  }
+  if(e.target.getAttribute("data-groupsel")){
+    var ng2=form.querySelector("#pNewGroup");
+    if(ng2){
+      ng2.hidden=e.target.value!=="__new__";
+      if(!ng2.hidden)ng2.focus();
+    }
+  }
 });
 
 var searchT;
@@ -813,7 +1496,7 @@ fetch("data/curriculum.json").then(function(r){
   if(!r.ok)throw new Error("HTTP "+r.status);
   return r.json();
 }).then(function(d){
-  DATA=d;
+  BASE=d; rebuildData();
   var hash=(location.hash||"").replace(/^#/,"");
   if(hash&&hash!=="dashboard"){
     for(var i=0;i<DATA.topics.length;i++)
@@ -821,10 +1504,26 @@ fetch("data/curriculum.json").then(function(r){
   }
   return (window.claude&&window.claude.use)?window.claude.use("db"):null;
 }).then(function(ns){
-  store=ns?dbStore(ns):localStore();
-  return store.load();
-}).then(function(map){
-  STATE=map||{};
+  if(ns){ store=dbStore(ns); return null; }        // hosted on claude.ai
+  // self-hosted: use the gist when a token from a previous visit is present
+  ghReadCreds();
+  store=localStore();
+  if(GH.token&&GH.gistId){
+    return ghApi("/user").then(function(u){
+      GH.user={login:u.login,name:u.name||u.login,avatar:u.avatar_url};
+      store=gistStore();
+    },function(e){
+      if(e&&e.code==="bad_token"){GH.token=null;GH.gistId=null;ghWriteCreds();}
+      setTimeout(function(){toast(ghErrText(e)+" Using this browser's copy.");},600);
+    });
+  }
+  return null;
+}).then(function(){
+  return Promise.all([store.load(), store.loadCustom?store.loadCustom():emptyCustom()]);
+}).then(function(r){
+  STATE=r[0]||{};
+  CUSTOM=r[1]||emptyCustom();
+  rebuildData();
   render();
 }).catch(function(err){
   if(!DATA){
