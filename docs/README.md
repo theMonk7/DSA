@@ -70,6 +70,23 @@ which is why the gist scope matters: that is the whole blast radius.
 
 **Never commit the token.** It belongs in the browser, not in the repo.
 
+### Multiple people, one site
+
+Each person connects their own token, so each gets their own gist in their own
+GitHub account. There is no shared backend and no server holding anyone's data:
+the app only ever talks to `api.github.com` as whoever's token is in that
+browser. One deployment of this site serves any number of people, and none of
+them can see another's progress through it.
+
+The remembered gist id is stored per GitHub account
+(`pattern-ledger-gist-id:<login>`), so two people sharing one browser keep
+separate ledgers and each gets their own gist back on reconnect.
+
+The app also checks that a remembered gist is actually owned by the account whose
+token is connected before using it. That check matters because a secret gist is
+readable by anyone holding its id — without it, a second person on a shared
+browser could have read the first person's gist.
+
 ### About "secret" gists
 
 A secret gist is unlisted, not encrypted — anyone who has its URL can read it.

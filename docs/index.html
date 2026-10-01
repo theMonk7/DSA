@@ -77,7 +77,44 @@ a{color:var(--teal)}
 .brand{font-family:var(--display);font-weight:600;font-size:19px;letter-spacing:-.01em;margin:0}
 .brand-sub{font-size:11.5px;color:var(--ink-3);letter-spacing:.06em;text-transform:uppercase;
   margin-top:3px;font-weight:500}
-#railScroll{overflow-y:auto;flex:1;padding:8px 8px 20px;min-height:0}
+#railPinned{padding:8px 8px 0;flex:none}
+#railScroll{overflow-y:auto;flex:1;padding:4px 8px 20px;min-height:0}
+#railScroll::-webkit-scrollbar{width:8px}
+#railScroll::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+.rail-div{height:1px;background:var(--border);margin:8px 2px 0}
+
+/* row action icons */
+.iact{flex:none;width:24px;height:24px;border-radius:6px;border:1px solid transparent;
+  background:none;display:flex;align-items:center;justify-content:center;padding:0;
+  color:var(--ink-3);line-height:1}
+.iact:hover{border-color:var(--border);color:var(--ink);background:var(--surface)}
+.iact[aria-pressed="true"]{color:var(--amber);border-color:var(--amber-line);background:var(--amber-soft)}
+.iact.rep[aria-pressed="true"]{color:var(--teal);border-color:color-mix(in srgb,var(--teal) 40%,transparent);
+  background:var(--teal-soft)}
+.iact svg{width:14px;height:14px}
+
+/* tags */
+.chip{font-size:10.5px;padding:1.5px 7px;border-radius:999px;border:1px solid var(--border);
+  background:var(--surface-3);color:var(--ink-2);white-space:nowrap;cursor:pointer;
+  font-family:var(--sans);line-height:1.5}
+.chip:hover{border-color:var(--teal);color:var(--teal)}
+.chip.mod{background:var(--teal-soft);color:var(--teal-ink);
+  border-color:color-mix(in srgb,var(--teal) 30%,transparent)}
+.chip.on{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
+:root[data-theme="dark"] .chip.on,:root:not([data-theme="light"]) .chip.on{color:#0e1319}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .chip.on{color:#fff}}
+.chip .x{margin-left:5px;opacity:.6;font-weight:700}
+.chip .x:hover{opacity:1}
+.tagbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:14px;
+  padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.tagbar-label{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;margin-right:2px}
+.tag-add{display:flex;gap:6px;align-items:center;margin-top:8px}
+.tag-add input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);
+  border-radius:7px;padding:5px 9px;font:inherit;font-size:12.5px;color:var(--ink)}
+.tag-add input:focus{outline:2px solid var(--teal);outline-offset:-1px;border-color:transparent}
+.res-topic{font-family:var(--display);font-size:15px;font-weight:600;margin:18px 0 8px}
+.res-topic:first-of-type{margin-top:0}
 .rail-label{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
   font-weight:600;padding:12px 8px 6px}
 #account{margin-top:12px}
@@ -355,6 +392,7 @@ a.tag{text-decoration:none}
       <div class="brand-sub">DSA prep tracker</div>
       <div id="account"></div>
     </div>
+    <div id="railPinned"></div>
     <nav id="railScroll"></nav>
   </aside>
   <div id="main">
@@ -366,6 +404,8 @@ a.tag{text-decoration:none}
           <button id="fAll" aria-pressed="true">All</button>
           <button id="fTodo" aria-pressed="false">To do</button>
           <button id="fDone" aria-pressed="false">Done</button>
+          <button id="fFav" aria-pressed="false" title="Favourites">★</button>
+          <button id="fRep" aria-pressed="false" title="Marked to repeat">↻</button>
         </div>
         <button id="themeBtn" class="icon-btn" aria-label="Toggle light or dark theme">◐</button>
       </div>
@@ -384,6 +424,8 @@ a.tag{text-decoration:none}
 var BASE=null;                 // generated from notes/*.md — never written to
 var CUSTOM={topics:[],groups:[],items:[]};   // viewer's own modules and problems
 var DATA=null, STATE={}, store=null;
+var ITEM_TOPIC={}, ALL_PROBLEMS=[];
+var activeTags=[];              // tag names that must ALL be present
 var route={view:"dash",topic:null,tab:"concepts"};
 var filter="all", query="", openSec={}, openDetail={}, noteTimers={};
 var $=function(s,r){return (r||document).querySelector(s);};
@@ -394,8 +436,19 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){
 var toastT;
 function toast(m){toastEl.textContent=m;toastEl.classList.add("show");
   clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove("show");},2400);}
-function st(id){return STATE[id]||{done:false,note:""};}
+function st(id){
+  var s=STATE[id];
+  if(!s)return {done:false,note:"",fav:false,repeat:false,tags:[]};
+  return {done:!!s.done,note:s.note||"",fav:!!s.fav,repeat:!!s.repeat,
+          tags:Array.isArray(s.tags)?s.tags:[]};
+}
 function isDone(id){return !!st(id).done;}
+function setItem(id,patch){
+  var cur=st(id), next={done:cur.done,note:cur.note,fav:cur.fav,repeat:cur.repeat,tags:cur.tags};
+  for(var k in patch)if(Object.prototype.hasOwnProperty.call(patch,k))next[k]=patch[k];
+  STATE[id]=next;
+  return next;
+}
 
 /* ---------- storage: artifact db when hosted by Claude, else localStorage ---------- */
 var LS_KEY="pattern-ledger-v1", LS_CUSTOM="pattern-ledger-custom-v1";
@@ -428,18 +481,27 @@ var GIST_FILE="pattern-ledger.json";
 var GIST_DESC="Pattern Ledger \u2014 DSA study progress";
 var GH_TOKEN_URL="https://github.com/settings/tokens/new?scopes=gist&description=Pattern%20Ledger";
 
+function ghGistKey(){
+  // one remembered gist per GitHub account, so two people sharing a browser
+  // never inherit each other's gist id
+  return GH_GIST_KEY+":"+((GH.user&&GH.user.login)||"_");
+}
 function ghReadCreds(){
-  try{
-    GH.token=localStorage.getItem(GH_TOKEN_KEY)||null;
-    GH.gistId=localStorage.getItem(GH_GIST_KEY)||null;
-  }catch(e){ /* private window or blocked storage: stay disconnected */ }
+  try{ GH.token=localStorage.getItem(GH_TOKEN_KEY)||null; }
+  catch(e){ /* private window or blocked storage: stay disconnected */ }
+}
+function ghReadGistId(){
+  try{ GH.gistId=localStorage.getItem(ghGistKey())||null; }
+  catch(e){ GH.gistId=null; }
 }
 function ghWriteCreds(){
   try{
     if(GH.token)localStorage.setItem(GH_TOKEN_KEY,GH.token);
     else localStorage.removeItem(GH_TOKEN_KEY);
-    if(GH.gistId)localStorage.setItem(GH_GIST_KEY,GH.gistId);
-    else localStorage.removeItem(GH_GIST_KEY);
+    if(GH.user){
+      if(GH.gistId)localStorage.setItem(ghGistKey(),GH.gistId);
+      else localStorage.removeItem(ghGistKey());
+    }
   }catch(e){ /* nothing we can do; the session still works in memory */ }
 }
 function ghApi(path,opts){
@@ -486,7 +548,17 @@ function ghParse(text){
 /* Find the app's gist, or make one. Never touches any other gist. */
 function ghFindOrCreateGist(allowRetry){
   if(GH.gistId){
-    return ghApi("/gists/"+GH.gistId).catch(function(e){
+    return ghApi("/gists/"+GH.gistId).then(function(g){
+      // A secret gist is readable by anyone holding its id, so a stored id is not
+      // proof of ownership. Without this check a second person on the same browser
+      // could read the first person's gist and then fail every write to it.
+      var owner=g&&g.owner&&g.owner.login;
+      if(!owner||!GH.user||owner!==GH.user.login){
+        GH.gistId=null;
+        return ghFindOrCreateGist(false);
+      }
+      return g;
+    },function(e){
       if(e&&e.code==="not_found"&&allowRetry!==false){
         GH.gistId=null;            // deleted on github.com: fall through and make a new one
         return ghFindOrCreateGist(false);
@@ -496,7 +568,8 @@ function ghFindOrCreateGist(allowRetry){
   }
   return ghApi("/gists?per_page=100").then(function(list){
     for(var i=0;i<list.length;i++){
-      if(list[i].files&&list[i].files[GIST_FILE]){GH.gistId=list[i].id;return list[i];}
+      var g=list[i], own=g.owner&&g.owner.login===GH.user.login;
+      if(own&&g.files&&g.files[GIST_FILE]){GH.gistId=g.id;return g;}
     }
     return ghApi("/gists",{method:"POST",body:{
       description:GIST_DESC,"public":false,files:ghFiles(ghPayload())}})
@@ -508,6 +581,7 @@ function ghConnect(token){
   if(!GH.token)return Promise.reject({code:"bad_token"});
   return ghApi("/user").then(function(u){
     GH.user={login:u.login,name:u.name||u.login,avatar:u.avatar_url};
+    ghReadGistId();                 // whichever gist THIS account used here before
     return ghFindOrCreateGist(true);
   }).then(function(){
     ghWriteCreds();
@@ -515,8 +589,10 @@ function ghConnect(token){
   });
 }
 function ghDisconnect(){
-  GH.token=null; GH.gistId=null; GH.user=null;
-  ghWriteCreds();
+  GH.gistId=null;
+  ghWriteCreds();                   // drops this account's remembered gist id
+  GH.token=null; GH.user=null;
+  try{localStorage.removeItem(GH_TOKEN_KEY);}catch(e){ /* storage blocked */ }
   store=localStore();
   Promise.all([store.load(),store.loadCustom()]).then(function(r){
     STATE=r[0]||{}; CUSTOM=r[1]||emptyCustom();
@@ -578,12 +654,15 @@ function dbStore(db){
     load:function(){
       return db.collection("items").get().then(function(s){
         var m={};s.docs.forEach(function(d){var v=d.data()||{};
-          m[d.id]={done:!!v.done,note:typeof v.note==="string"?v.note:""};});
+          m[d.id]={done:!!v.done,note:typeof v.note==="string"?v.note:"",
+                   fav:!!v.fav,repeat:!!v.repeat,
+                   tags:Array.isArray(v.tags)?v.tags:[]};});
         return m;});
     },
     save:function(id,rec){
       return db.collection("items").doc(id)
-        .set({done:!!rec.done,note:rec.note||"",updatedAt:Date.now()})
+        .set({done:!!rec.done,note:rec.note||"",fav:!!rec.fav,repeat:!!rec.repeat,
+              tags:rec.tags||[],updatedAt:Date.now()})
         .then(function(){return true;}).catch(function(){return false;});
     },
     bulk:function(map){
@@ -593,7 +672,8 @@ function dbStore(db){
           if(i>=ids.length)return res(true);
           var id=ids[i++];
           db.collection("items").doc(id)
-            .set({done:!!map[id].done,note:map[id].note||"",updatedAt:Date.now()})
+            .set({done:!!map[id].done,note:map[id].note||"",fav:!!map[id].fav,
+                  repeat:!!map[id].repeat,tags:map[id].tags||[],updatedAt:Date.now()})
             .catch(function(){}).then(step);
         })();
       });
@@ -658,6 +738,16 @@ function rebuildData(){
     g.items.push(ci);
   });
   DATA={topics:topics};
+  ITEM_TOPIC={}; ALL_PROBLEMS=[];
+  topics.forEach(function(t){
+    t.problems.forEach(function(g){
+      g.items.forEach(function(it){
+        ITEM_TOPIC[it.id]=t.title;
+        ALL_PROBLEMS.push({item:it,topic:t,group:g});
+      });
+    });
+    t.concepts.forEach(function(c){ITEM_TOPIC[c.id]=t.title;});
+  });
 }
 function persistCustom(msg){
   rebuildData(); render();
@@ -701,7 +791,15 @@ function openModal(html,onSubmit){
   if(first)first.focus();
 }
 document.addEventListener("keydown",function(e){
-  if(e.key==="Escape"&&modalBack&&!modalBack.hidden)closeModal();
+  if(e.key==="Escape"&&modalBack&&!modalBack.hidden){closeModal();return;}
+  var tid=e.target&&e.target.getAttribute&&e.target.getAttribute("data-tagnew");
+  if(tid&&e.key==="Enter"){
+    e.preventDefault();
+    if(addTag(tid,e.target.value)){e.target.value="";pushItem(tid);}
+  }
+  if(e.key==="Escape"&&e.target&&e.target.id==="search"&&query){
+    e.target.value=""; query=""; render();
+  }
 });
 
 function topicOptions(sel){
@@ -838,14 +936,68 @@ function deleteProblem(id){
   persistCustom("Problem deleted.");
 }
 
+/* ---------- tags ----------
+   Every problem carries its module name as an implicit tag, so module and
+   user tags combine in the same filter. Implicit tags cannot be removed. */
+function itemTags(id){
+  var out=[], mod=ITEM_TOPIC[id];
+  if(mod)out.push({name:mod,implicit:true});
+  st(id).tags.forEach(function(t){
+    if(!mod||t!==mod)out.push({name:t,implicit:false});
+  });
+  return out;
+}
+function tagNames(id){
+  return itemTags(id).map(function(t){return t.name;});
+}
+function allTags(){
+  var counts={}, implicit={};
+  ALL_PROBLEMS.forEach(function(r){
+    tagNames(r.item.id).forEach(function(n){counts[n]=(counts[n]||0)+1;});
+    if(ITEM_TOPIC[r.item.id])implicit[ITEM_TOPIC[r.item.id]]=true;
+  });
+  return Object.keys(counts).sort(function(a,b){
+    if(implicit[a]!==implicit[b])return implicit[a]?1:-1;   // user tags first
+    return a.localeCompare(b);
+  }).map(function(n){return {name:n,count:counts[n],implicit:!!implicit[n]};});
+}
+function addTag(id,name){
+  name=(name||"").trim().replace(/\s+/g," ").slice(0,32);
+  if(!name)return false;
+  var cur=st(id).tags.slice();
+  var low=name.toLowerCase();
+  for(var i=0;i<cur.length;i++)if(cur[i].toLowerCase()===low)return false;
+  if(ITEM_TOPIC[id]&&ITEM_TOPIC[id].toLowerCase()===low)return false;   // already implicit
+  cur.push(name);
+  setItem(id,{tags:cur});
+  return true;
+}
+function removeTag(id,name){
+  setItem(id,{tags:st(id).tags.filter(function(t){return t!==name;})});
+}
+function toggleActiveTag(name){
+  var i=activeTags.indexOf(name);
+  if(i<0)activeTags.push(name); else activeTags.splice(i,1);
+}
+function passTags(id){
+  if(!activeTags.length)return true;
+  var names=tagNames(id);
+  for(var i=0;i<activeTags.length;i++)
+    if(names.indexOf(activeTags[i])<0)return false;    // AND across tags
+  return true;
+}
+
 /* ---------- counting ---------- */
 function matches(title,extra){
   if(!query)return true;
   return ((title+" "+(extra||"")).toLowerCase().indexOf(query)!==-1);
 }
 function passFilter(id){
-  if(filter==="todo")return !isDone(id);
-  if(filter==="done")return isDone(id);
+  var s=st(id);
+  if(filter==="todo")return !s.done;
+  if(filter==="done")return s.done;
+  if(filter==="fav")return s.fav;
+  if(filter==="repeat")return s.repeat;
   return true;
 }
 function conceptCount(t){
@@ -880,11 +1032,16 @@ function splitBar(c,p,cls){
 }
 function renderRail(){
   var a=allCount();
-  var h='<button class="nav-item'+(route.view==="dash"?" active":"")+'" data-nav="dash">'+
-    '<div class="nav-row"><span class="nav-title">Dashboard</span>'+
-    '<span class="nav-count tnum">'+a.done+'/'+a.total+'</span></div>'+
-    splitBar({done:a.cdone,total:a.ctotal},{done:a.pdone,total:a.ptotal},"nav-bar")+'</button>';
-  h+='<div class="rail-label">Topics</div>';
+  var pinned=$("#railPinned");
+  if(pinned){
+    pinned.innerHTML='<button class="nav-item'+(route.view==="dash"?" active":"")+'" data-nav="dash">'+
+      '<div class="nav-row"><span class="nav-title">Dashboard</span>'+
+      '<span class="nav-count tnum">'+a.done+'/'+a.total+'</span></div>'+
+      splitBar({done:a.cdone,total:a.ctotal},{done:a.pdone,total:a.ptotal},"nav-bar")+'</button>'+
+      '<div class="rail-div"></div>'+
+      '<div class="rail-label" style="padding-bottom:2px">Topics</div>';
+  }
+  var h="";
   DATA.topics.forEach(function(t){
     var c=topicCount(t);
     h+='<button class="nav-item'+(route.topic===t.id?" active":"")+'" data-nav="topic" data-id="'+t.id+'">'+
@@ -958,7 +1115,7 @@ function renderDash(){
     'Clears every tick across all '+DATA.topics.length+' topics, concepts and problems alike. '+
     'Your written notes are kept.</p><div class="confirm-row" id="resetZone">'+
     '<button class="btn-danger" id="resetBtn">Reset all progress</button></div></div>';
-  view.innerHTML=h;
+  view.innerHTML=h+tagDatalist();
 }
 
 /* ---------- markdown ---------- */
@@ -1013,9 +1170,23 @@ function conceptCard(c){
   return h;
 }
 
+function tagEditor(id){
+  var h='<h4>Tags</h4><div class="row-tags" style="margin-top:0">';
+  itemTags(id).forEach(function(tg){
+    h+='<span class="chip'+(tg.implicit?" mod":"")+'">'+esc(tg.name)+
+       (tg.implicit?'':'<button class="x" data-tagdel="'+esc(id)+'" data-tagname="'+esc(tg.name)+
+        '" title="Remove tag" aria-label="Remove tag">\u00d7</button>')+'</span>';
+  });
+  h+='</div><div class="tag-add">'+
+    '<input type="text" data-tagnew="'+esc(id)+'" list="tagList" maxlength="32" '+
+    'placeholder="Add a tag, then press Enter">'+
+    '<button class="btn-ghost" data-tagadd="'+esc(id)+'" style="padding:5px 11px;font-size:12.5px">Add</button>'+
+    '</div>';
+  return h;
+}
 function noteBlock(id,url){
   var s=st(id);
-  return '<div style="margin-top:12px"><h4 style="margin-top:0">My notes</h4>'+
+  return '<div style="margin-top:12px">'+tagEditor(id)+'<h4>My notes</h4>'+
     '<textarea class="note-area" id="na-'+esc(id)+'" data-note="'+esc(id)+'" '+
     'placeholder="Approach, invariant, what tripped you up, the date to retry…">'+esc(s.note||"")+'</textarea>'+
     '<div class="note-foot"><span data-notestatus="'+esc(id)+'"></span>'+
@@ -1046,6 +1217,11 @@ function problemRow(it){
   }
   if(it.custom)tags+='<span class="tag custom">mine</span>';
   if(hasNote)tags+='<span class="tag has-note">note</span>';
+  itemTags(it.id).forEach(function(tg){
+    tags+='<button class="chip'+(tg.implicit?" mod":"")+
+      (activeTags.indexOf(tg.name)>=0?" on":"")+'" data-tagclick="'+esc(tg.name)+
+      '" title="Filter by this tag">'+esc(tg.name)+'</button>';
+  });
   var h='<div class="row'+(done?" is-done":"")+'">'+
     '<button class="tick" data-tick="'+esc(it.id)+'" aria-pressed="'+done+'" aria-label="Mark solved">'+
       '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6.2 4.4 9 10.5 2.8"/></svg></button>'+
@@ -1053,6 +1229,17 @@ function problemRow(it){
       (it.hint?'<div class="row-hint">'+esc(it.hint)+'</div>':'')+
       (tags?'<div class="row-tags">'+tags+'</div>':'')+'</div>'+
     '<div class="row-actions">'+
+      '<button class="iact" data-fav="'+esc(it.id)+'" aria-pressed="'+s.fav+'" '+
+        'title="Favourite" aria-label="Favourite">'+
+        '<svg viewBox="0 0 16 16" fill="'+(s.fav?"currentColor":"none")+'" stroke="currentColor" '+
+        'stroke-width="1.6" stroke-linejoin="round"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6 '+
+        '4.2 13.6l.7-4.3-3.1-3 4.3-.6z"/></svg></button>'+
+      '<button class="iact rep" data-repeat="'+esc(it.id)+'" aria-pressed="'+s.repeat+'" '+
+        'title="Repeat this one" aria-label="Mark to repeat">'+
+        '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" '+
+        'stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 7a5.5 5.5 0 0 1 9.4-3.4L14 5.6"/>'+
+        '<path d="M14 2.2v3.6h-3.6"/><path d="M13.5 9a5.5 5.5 0 0 1-9.4 3.4L2 10.4"/>'+
+        '<path d="M2 13.8v-3.6h3.6"/></svg></button>'+
       (it.custom?'<button class="mini" data-editproblem="'+esc(it.id)+'">Edit</button>':'')+
       '<button class="mini" data-detail="'+esc(it.id)+'" aria-expanded="'+open+'">Notes</button>'+
     '</div></div>';
@@ -1060,11 +1247,16 @@ function problemRow(it){
   return h;
 }
 
+function problemHaystack(it,gTitle){
+  return it.title+" "+(it.lc||"")+" "+(it.tier||"")+" "+(gTitle||"")+" "+
+         (ITEM_TOPIC[it.id]||"")+" "+tagNames(it.id).join(" ");
+}
 function visibleProblems(g){
   var out=[];
   g.items.forEach(function(it){
     if(!passFilter(it.id))return;
-    if(!matches(it.title,(it.lc||"")+" "+(it.tier||"")+" "+g.title))return;
+    if(!passTags(it.id))return;
+    if(!matches(problemHaystack(it,g.title),""))return;
     out.push(it);
   });
   return out;
@@ -1134,7 +1326,7 @@ function renderTopic(){
       if(!shown)h+='<div class="empty">No problem matches this filter.</div>';
     }
   }
-  view.innerHTML=h;
+  view.innerHTML=h+tagDatalist();
   highlightIn(view);
 }
 
@@ -1211,7 +1403,8 @@ var pendingMerge=null;   // {local:{...}} shown as a choice on the dashboard
 
 function countEntries(m){
   return Object.keys(m||{}).filter(function(k){
-    return m[k]&&(m[k].done||(m[k].note&&m[k].note.trim()));
+    var v=m[k];
+    return v&&(v.done||v.fav||v.repeat||(v.tags&&v.tags.length)||(v.note&&v.note.trim()));
   }).length;
 }
 function customSize(c){
@@ -1264,8 +1457,18 @@ function applyMerge(){
   Object.keys(local).forEach(function(k){
     var l=local[k], c=STATE[k];
     if(!l)return;
-    if(!c){STATE[k]={done:!!l.done,note:l.note||""};added++;return;}
+    if(!c){STATE[k]={done:!!l.done,note:l.note||"",fav:!!l.fav,repeat:!!l.repeat,
+                      tags:l.tags||[]};added++;return;}
     if(l.done&&!c.done){c.done=true;added++;}
+    if(l.fav&&!c.fav){c.fav=true;added++;}
+    if(l.repeat&&!c.repeat){c.repeat=true;added++;}
+    if(l.tags&&l.tags.length){
+      var have=(c.tags||[]).map(function(x){return x.toLowerCase();});
+      (c.tags=c.tags||[]);
+      l.tags.forEach(function(tg){
+        if(have.indexOf(String(tg).toLowerCase())<0){c.tags.push(tg);added++;}
+      });
+    }
     if(l.note&&l.note.trim()&&!(c.note&&c.note.trim())){c.note=l.note;added++;}
   });
   pendingMerge=null;
@@ -1281,15 +1484,37 @@ function render(){
 
 /* ---------- mutations ---------- */
 function toggle(id){
-  var s=st(id);
-  STATE[id]={done:!s.done,note:s.note||""};
+  setItem(id,{done:!st(id).done});
+  pushItem(id);
+}
+function pushItem(id){
   render();
   store.save(id,STATE[id]).then(function(ok){
     if(!ok)toast("Could not save. Your progress may not persist.");
   });
 }
+function toggleFav(id){
+  var v=!st(id).fav; setItem(id,{fav:v}); pushItem(id);
+}
+function toggleRepeat(id){
+  var v=!st(id).repeat; setItem(id,{repeat:v}); pushItem(id);
+}
+/* Clear the ticks for one module. Notes, tags, favourites and repeat marks stay. */
+function resetModule(topicId){
+  var t=findTopic(topicId);
+  if(!t)return;
+  var ids=[];
+  t.concepts.forEach(function(c){if(isDone(c.id))ids.push(c.id);});
+  t.problems.forEach(function(g){g.items.forEach(function(it){if(isDone(it.id))ids.push(it.id);});});
+  if(!ids.length){toast("Nothing ticked in this module.");return;}
+  ids.forEach(function(id){setItem(id,{done:false});});
+  render();
+  store.bulk(STATE).then(function(){
+    toast("Reset "+ids.length+" item"+(ids.length===1?"":"s")+" in "+t.title+". Notes and tags kept.");
+  });
+}
 function queueNote(id,text){
-  var s=st(id);STATE[id]={done:!!s.done,note:text};
+  setItem(id,{note:text});
   var el=document.querySelector('[data-notestatus="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');
   if(el)el.textContent="Saving…";
   clearTimeout(noteTimers[id]);
@@ -1305,7 +1530,7 @@ function queueNote(id,text){
 function resetAll(){
   var ids=Object.keys(STATE).filter(function(k){return STATE[k].done;});
   if(!ids.length){toast("Nothing to reset.");return;}
-  ids.forEach(function(id){STATE[id]={done:false,note:STATE[id].note||""};});
+  ids.forEach(function(id){setItem(id,{done:false});});
   render();
   store.bulk(STATE).then(function(){toast("Progress reset for "+ids.length+" item"+(ids.length===1?"":"s")+". Notes kept.");});
 }
@@ -1371,6 +1596,39 @@ function importBackup(file){
 document.addEventListener("click",function(e){
   var el;
   if((el=e.target.closest("[data-tick]"))){toggle(el.getAttribute("data-tick"));return;}
+  if((el=e.target.closest("[data-fav]"))){toggleFav(el.getAttribute("data-fav"));return;}
+  if((el=e.target.closest("[data-repeat]"))){toggleRepeat(el.getAttribute("data-repeat"));return;}
+  if((el=e.target.closest("[data-tagdel]"))){
+    removeTag(el.getAttribute("data-tagdel"),el.getAttribute("data-tagname"));
+    pushItem(el.getAttribute("data-tagdel"));
+    return;
+  }
+  if((el=e.target.closest("[data-tagadd]"))){
+    var aid=el.getAttribute("data-tagadd");
+    var inp=document.querySelector('[data-tagnew="'+(window.CSS&&CSS.escape?CSS.escape(aid):aid)+'"]');
+    if(inp&&addTag(aid,inp.value)){inp.value="";pushItem(aid);}
+    return;
+  }
+  if((el=e.target.closest("[data-tagclick]"))){
+    toggleActiveTag(el.getAttribute("data-tagclick"));
+    render();
+    return;
+  }
+  if(e.target.id==="clearTags"){activeTags=[];render();return;}
+  if((el=e.target.closest("[data-gotopic]"))){
+    query=""; activeTags=[];
+    var si=$("#search"); if(si)si.value="";
+    route={view:"topic",topic:el.getAttribute("data-gotopic"),tab:"concepts"};
+    render(); $("#main").scrollTop=0;
+    return;
+  }
+  if((el=e.target.closest("[data-modreset]"))){
+    var mid=el.getAttribute("data-modreset");
+    if(el.getAttribute("data-armed")==="1"){resetModule(mid);return;}
+    el.setAttribute("data-armed","1");
+    el.textContent="Really reset this module?";
+    return;
+  }
   if((el=e.target.closest("[data-nav]"))){
     var nav=el.getAttribute("data-nav");
     route = nav==="dash" ? {view:"dash",topic:null,tab:route.tab}
@@ -1479,8 +1737,7 @@ document.addEventListener("input",function(e){
     clearTimeout(searchT);
     var v=e.target.value.trim().toLowerCase();
     searchT=setTimeout(function(){
-      query=v;
-      if(query&&route.view==="dash")route={view:"topic",topic:DATA.topics[0].id,tab:route.tab};
+      query=v;            // render() routes to the global results view when this is set
       render();
     },160);
     return;
@@ -1489,10 +1746,11 @@ document.addEventListener("input",function(e){
   if(nid)queueNote(nid,e.target.value);
 });
 
-["fAll","fTodo","fDone"].forEach(function(id){
+var FILTER_BTNS={fAll:"all",fTodo:"todo",fDone:"done",fFav:"fav",fRep:"repeat"};
+Object.keys(FILTER_BTNS).forEach(function(id){
   document.getElementById(id).addEventListener("click",function(){
-    filter=id==="fAll"?"all":id==="fTodo"?"todo":"done";
-    ["fAll","fTodo","fDone"].forEach(function(b){
+    filter=FILTER_BTNS[id];
+    Object.keys(FILTER_BTNS).forEach(function(b){
       document.getElementById(b).setAttribute("aria-pressed",b===id?"true":"false");});
     render();
   });
@@ -1520,12 +1778,19 @@ fetch("data/curriculum.json").then(function(r){
   // self-hosted: use the gist when a token from a previous visit is present
   ghReadCreds();
   store=localStore();
-  if(GH.token&&GH.gistId){
+  if(GH.token){
     return ghApi("/user").then(function(u){
       GH.user={login:u.login,name:u.name||u.login,avatar:u.avatar_url};
-      store=gistStore();
+      ghReadGistId();
+      return ghFindOrCreateGist(true).then(function(){
+        ghWriteCreds();
+        store=gistStore();
+      });
     },function(e){
-      if(e&&e.code==="bad_token"){GH.token=null;GH.gistId=null;ghWriteCreds();}
+      if(e&&e.code==="bad_token"){
+        GH.token=null; GH.user=null;
+        try{localStorage.removeItem(GH_TOKEN_KEY);}catch(e2){ /* storage blocked */ }
+      }
       setTimeout(function(){toast(ghErrText(e)+" Using this browser's copy.");},600);
     });
   }
