@@ -1,4 +1,5 @@
 import re, json, os, unicodedata
+from urllib.parse import quote
 
 ROOT = "/Users/utkarshraj/Documents/Learning/DSA"
 SRC  = ROOT + "/notes"
@@ -68,6 +69,23 @@ def collect(pos, acc):
 
 a2z_groups = {}       # topic -> [group]
 lc_url_by_title = {}  # normalized title -> leetcode url
+tuf_url_by_title = {} # normalized title -> takeuforward problem page
+
+TUF_BASE = "https://takeuforward.org/plus/dsa/problems/"
+def tuf_url(item):
+    """takeuforward.org/plus/dsa/problems/<itemSlug>, verified to resolve."""
+    rt = item.get("redirectTo") or {}
+    slug = rt.get("itemSlug")
+    if not slug or rt.get("layoutType") != "practice":
+        return None
+    return TUF_BASE + quote(slug, safe="")
+
+def tuf_article(item):
+    """The sheet's own free article path, e.g. /blogs/data-structure-and-algorithm/<x>."""
+    b = item.get("free_blog_link")
+    if not b:
+        return None
+    return "https://takeuforward.org" + b if b.startswith("/") else b
 def norm(t): return re.sub(r"[^a-z0-9]+","", (t or "").lower())
 
 for pos in roots:
@@ -84,18 +102,30 @@ for pos in roots:
              "source":"a2z", "stepLabel":label, "items":[]}
         for it in items:
             lab=(it.get("label") or "").strip()
-            url=it.get("leetcode_link") or None
-            if url: lc_url_by_title.setdefault(norm(lab), url)
+            lcu=it.get("leetcode_link") or None
+            tufu=tuf_url(it)
+            if lcu: lc_url_by_title.setdefault(norm(lab), lcu)
+            if tufu: tuf_url_by_title.setdefault(norm(lab), tufu)
+            # LeetCode when the sheet has one, otherwise the takeUforward page
+            if lcu:
+                url, kind = lcu, "leetcode"
+            elif tufu:
+                url, kind = tufu, "tuf"
+            else:
+                art = tuf_article(it)          # theory entries have no problem page
+                url, kind = (art, "article") if art else (None, None)
             g["items"].append({
                 "id": slugify("a2z-"+label+"-"+lab), "title": lab, "lc": None,
-                "url": url, "urlKind": "direct" if url else None,
+                "url": url, "urlKind": kind,
                 "tier": it.get("difficulty"), "source":"a2z",
             })
         a2z_groups.setdefault(topic, []).append(g)
 
 def lc_link(title, num):
     u = lc_url_by_title.get(norm(title))
-    if u: return u, "direct"
+    if u: return u, "leetcode"
+    t = tuf_url_by_title.get(norm(title))
+    if t: return t, "tuf"
     if num:
         first = re.split(r"[^0-9]", str(num))[0]
         if first: return "https://leetcode.com/problemset/?search=" + first, "search"
@@ -200,10 +230,11 @@ for t in out:
 nc = sum(len(t["concepts"]) for t in out)
 npz = sum(len(g["items"]) for t in out for g in t["problems"])
 nnotes = sum(1 for t in out for g in t["problems"] for it in g["items"] if it["source"]=="notes")
+def kcount(k): return sum(1 for t in out for g in t["problems"] for it in g["items"] if it.get("urlKind")==k)
 linked = sum(1 for t in out for g in t["problems"] for it in g["items"] if it.get("url"))
-direct = sum(1 for t in out for g in t["problems"] for it in g["items"] if it.get("urlKind")=="direct")
 print(f"topics={len(out)} conceptSections={nc} problems={npz} (notes={nnotes}, a2z={npz-nnotes})")
-print(f"problems with a LeetCode link: {linked} ({direct} direct, {linked-direct} search)")
+print(f"links: {linked}/{npz} -> leetcode {kcount('leetcode')}, takeUforward {kcount('tuf')}, "
+      f"tuf-article {kcount('article')}, lc-search {kcount('search')}, none {npz-linked}")
 for t in out:
     print(f"  {t['id']:16s} concepts={len(t['concepts']):3d}  problemGroups={len(t['problems']):3d}  problems={sum(len(g['items']) for g in t['problems']):4d}")
 json.dump({"topics":out, "generated": "notes/*.md + Striver A2Z sheet"},

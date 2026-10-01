@@ -152,9 +152,23 @@ The page itself (`docs/index.html`) only changes when you edit it directly.
 - Topics with no LC-tagged headings (Monotonic Stack, Intervals) have concepts
   but no problems — their Problems tab says so rather than showing an empty list.
 
-## LeetCode links
+## Problem links
 
-A problem links straight to LeetCode when its title matches one in the A2Z sheet
-(304 do). Otherwise the link is a LeetCode search for its problem number, which
-always resolves even when the title in your notes is abbreviated. The tag text
-tells you which: **LeetCode ↗** is direct, **Find on LC ↗** is a search.
+Each problem gets one link, chosen in this order:
+
+| Tag | When | Goes to |
+|---|---|---|
+| **LeetCode** | the A2Z sheet has a LeetCode URL for it, or your notes title matches one that does | the problem on LeetCode |
+| **takeUforward** | no LeetCode URL, but it is a practice entry | `takeuforward.org/plus/dsa/problems/<slug>` |
+| **TUF article** | a theory entry with a free article | `takeuforward.org/blogs/...` |
+| **Find on LC** | none of the above, but your notes give an LC number | a LeetCode search for that number |
+
+Current split across 825 problems: 304 LeetCode, 160 takeUforward, 21 TUF articles,
+310 LeetCode search, 30 with no link.
+
+The pattern-printing problems (Pattern 1 through 22) have no LeetCode equivalent,
+so they link to takeUforward. Slugs come from the sheet's own data rather than
+being guessed from titles, and a sample was checked to return 200.
+
+The 30 with no link are sheet entries that are neither a problem nor an article
+("Learn C++", "STL", section placeholders).

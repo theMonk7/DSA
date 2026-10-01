@@ -255,6 +255,8 @@ h1.page-title{font-family:var(--display);font-size:30px;font-weight:600;letter-s
   border-radius:4px;border:1px solid var(--border);color:var(--ink-3);white-space:nowrap}
 a.tag{text-decoration:none}
 .tag.lc{color:var(--teal);border-color:color-mix(in srgb,var(--teal) 35%,transparent);background:var(--teal-soft)}
+.tag.lc.dim{background:none;color:var(--ink-3);border-color:var(--border)}
+.tag.tuf{color:var(--amber);border-color:var(--amber-line);background:var(--amber-soft)}
 .tag.src-a2z{color:var(--amber);border-color:var(--amber-line);background:var(--amber-soft)}
 .tag.t-basic{color:var(--basic);border-color:color-mix(in srgb,var(--basic) 40%,transparent)}
 .tag.t-core{color:var(--core);border-color:color-mix(in srgb,var(--core) 40%,transparent)}
@@ -1017,12 +1019,19 @@ function noteBlock(id,url){
     '<textarea class="note-area" id="na-'+esc(id)+'" data-note="'+esc(id)+'" '+
     'placeholder="Approach, invariant, what tripped you up, the date to retry…">'+esc(s.note||"")+'</textarea>'+
     '<div class="note-foot"><span data-notestatus="'+esc(id)+'"></span>'+
-    (url?'<a href="'+esc(url)+'" target="_blank" rel="noopener">Open on LeetCode ↗</a>':'<span></span>')+
+    (url?'<a href="'+esc(url)+'" target="_blank" rel="noopener">Open problem ↗</a>':'<span></span>')+
     '</div></div>';
 }
 
 /* ---------- problems ---------- */
 var TIER={basic:"Basic",core:"Core",pro:"Pro"};
+var LINK_KIND={
+  leetcode:{label:"LeetCode \u2197",      cls:"lc"},
+  direct:  {label:"LeetCode \u2197",      cls:"lc"},      // data written before the rename
+  tuf:     {label:"takeUforward \u2197",  cls:"tuf"},
+  article: {label:"TUF article \u2197",   cls:"tuf"},
+  search:  {label:"Find on LC \u2197",    cls:"lc dim"}
+};
 function problemRow(it){
   var s=st(it.id),done=!!s.done,open=!!openDetail[it.id];
   var hasNote=!!(s.note&&s.note.trim());
@@ -1030,8 +1039,11 @@ function problemRow(it){
   if(it.source==="a2z")tags+='<span class="tag src-a2z">A2Z</span>';
   if(it.tier)tags+='<span class="tag t-'+esc(it.tier)+'">'+esc(TIER[it.tier]||it.tier)+'</span>';
   if(it.lc)tags+='<span class="tag">LC '+esc(it.lc)+'</span>';
-  if(it.url)tags+='<a class="tag lc" href="'+esc(it.url)+'" target="_blank" rel="noopener">'+
-    (it.urlKind==="direct"?"LeetCode ↗":"Find on LC ↗")+'</a>';
+  if(it.url){
+    var lk=LINK_KIND[it.urlKind]||LINK_KIND.search;
+    tags+='<a class="tag '+lk.cls+'" href="'+esc(it.url)+'" target="_blank" rel="noopener">'+
+      lk.label+'</a>';
+  }
   if(it.custom)tags+='<span class="tag custom">mine</span>';
   if(hasNote)tags+='<span class="tag has-note">note</span>';
   var h='<div class="row'+(done?" is-done":"")+'">'+
