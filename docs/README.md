@@ -203,3 +203,18 @@ being guessed from titles, and a sample was checked to return 200.
 
 The 30 with no link are sheet entries that are neither a problem nor an article
 ("Learn C++", "STL", section placeholders).
+
+### Saving your own link
+
+Where there is no real link, the chip reads **+ add link** instead. Click it and
+you get a box to paste a URL, plus buttons that open a LeetCode and a
+GeeksforGeeks search for that problem in a new tab — find it, copy the address,
+paste it back.
+
+The site is detected from the URL, so the chip then reads **LeetCode**,
+**GeeksforGeeks**, **takeUforward** or **Open**. A link you save always wins over
+the generated one, and **edit link** lets you change or remove it; removing it
+falls back to whatever the build produced.
+
+Saved links live with your progress, so they sync to your gist and follow your
+account to any browser. Fixing a link once fixes it everywhere.
