@@ -663,8 +663,11 @@ function st(id){
 }
 function isDone(id){return !!st(id).done;}
 function setItem(id,patch){
-  var cur=st(id), next={done:cur.done,note:cur.note,fav:cur.fav,repeat:cur.repeat,tags:cur.tags};
-  for(var k in patch)if(Object.prototype.hasOwnProperty.call(patch,k))next[k]=patch[k];
+  // Copy EVERY field st() normalises, not a hand-listed subset: a list here goes
+  // stale the moment a new field is added, and silently drops it on the next write.
+  var cur=st(id), next={}, k;
+  for(k in cur)if(Object.prototype.hasOwnProperty.call(cur,k))next[k]=cur[k];
+  for(k in patch)if(Object.prototype.hasOwnProperty.call(patch,k))next[k]=patch[k];
   STATE[id]=next;
   return next;
 }
