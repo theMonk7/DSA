@@ -494,8 +494,10 @@ button.tag{font-family:var(--mono);cursor:pointer}
 .tag.addlink{color:var(--accent);border-style:dashed;
   border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:none}
 .tag.addlink:hover{background:var(--accent-soft)}
-.tag.linkedit{color:var(--ink-3);background:none}
-.tag.linkedit:hover{color:var(--ink);border-color:var(--border-strong)}
+.tag.linkedit{color:var(--ink-3);background:none;border-color:transparent;
+  padding:1.5px 5px;font-size:11px}
+.tag.linkedit:hover{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,transparent);
+  background:var(--accent-soft)}
 .lookup-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .lookup-row a{font-size:12px;text-decoration:none;border:1px solid var(--border);
   border-radius:7px;padding:5px 10px;color:var(--ink-2);background:var(--surface-2)}
@@ -1150,20 +1152,27 @@ function problemForm(existing,topicId){
 function linkForm(it){
   var s=st(it.id), cur=s.link||"";
   var gen=it.url&&it.urlKind!=="search"?it.url:"";
+  var prefill=cur||gen||"";        // editing starts from wherever it points now
+  var originNote=cur
+    ? "Your own link. Removing it falls back to the built-in one."
+    : (gen? "This is the built-in link. Saving replaces it for you only."
+          : "No link yet for this problem.");
   openModal(
-    '<h2>'+(cur?"Edit link":"Add a link")+'</h2>'+
+    '<h2>'+(cur?"Edit link":(gen?"Replace link":"Add a link"))+'</h2>'+
     '<p class="modal-sub">'+esc(it.title)+(it.lc?' \u00b7 LC '+esc(it.lc):'')+'</p>'+
     '<div class="field"><label for="lkUrl">Problem URL</label>'+
-    '<input id="lkUrl" name="url" type="url" value="'+esc(cur)+'" '+
+    '<input id="lkUrl" name="url" type="url" value="'+esc(prefill)+'" '+
     'placeholder="https://leetcode.com/problems/\u2026" spellcheck="false">'+
-    '<div class="hint">LeetCode, GeeksforGeeks, takeUforward or anywhere else. '+
-    'Saved with your progress, so it follows your account.</div></div>'+
+    '<div class="hint">'+esc(originNote)+' Point it anywhere \u2014 GeeksforGeeks, '+
+    'takeUforward, Codeforces \u2014 if the LeetCode page is premium or wrong. '+
+    'Saved with your progress, so it follows your account to every browser.</div></div>'+
     '<div class="field"><label>Go and find it</label><div class="lookup-row">'+
       '<a href="'+esc(lcSearchUrl(it))+'" target="_blank" rel="noopener">Search LeetCode \u2197</a>'+
       '<a href="'+esc(gfgSearchUrl(it))+'" target="_blank" rel="noopener">Search GeeksforGeeks \u2197</a>'+
     '</div><div class="hint">Opens in a new tab \u2014 copy the URL and paste it above.</div></div>'+
-    (gen?'<div class="field"><div class="hint">Built-in link: <a href="'+esc(gen)+
-      '" target="_blank" rel="noopener">'+esc(gen.slice(0,52))+'\u2026</a></div></div>':'')+
+    (gen&&cur&&cur!==gen?'<div class="field"><div class="hint">Built-in link was '+
+      '<a href="'+esc(gen)+'" target="_blank" rel="noopener">'+esc(gen.slice(0,56))+
+      '</a></div></div>':'')+
     '<div class="err-msg"></div>'+
     '<div class="modal-foot">'+
       (cur?'<button type="button" class="btn-danger" data-linkclear="'+esc(it.id)+'">Remove link</button>':'')+
@@ -1569,12 +1578,14 @@ function problemRow(it){
   if(L.url&&!(L.kind==="search"&&!L.mine)){
     var lk=LINK_KIND[L.kind]||LINK_KIND.other;
     tags+='<a class="tag '+lk.cls+'" href="'+esc(L.url)+'" target="_blank" rel="noopener">'+
-      lk.label+'</a>';
-    if(L.mine)tags+='<button class="tag linkedit" data-linkedit="'+esc(it.id)+'" '+
-      'title="Change or remove this link">edit link</button>';
+      lk.label+'</a>'+
+      // always offer a change: a built-in link can be premium, dead, or the wrong site
+      '<button class="tag linkedit" data-linkedit="'+esc(it.id)+'" '+
+      'title="'+(L.mine?"Change or remove this link":"Replace this link \u2014 premium, wrong site, or broken")+
+      '" aria-label="Edit link">\u270e</button>';
   }else{
     tags+='<button class="tag addlink" data-linkedit="'+esc(it.id)+'" '+
-      'title="Save a LeetCode or GeeksforGeeks link for this problem">+ add link</button>';
+      'title="Save a LeetCode, GeeksforGeeks or other link for this problem">+ add link</button>';
   }
   if(it.custom)tags+='<span class="tag custom">mine</span>';
   if(hasNote)tags+='<span class="tag has-note">note</span>';
