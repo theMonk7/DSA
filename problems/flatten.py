@@ -32,3 +32,4 @@ res = []
 while iterator.hasNext():
     res.append(iterator.next())
 print(res)
+

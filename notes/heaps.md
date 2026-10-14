@@ -905,6 +905,151 @@ while heap and heap[0][0] <= now:     # ALWAYS while, never if
 ```
 
 `while`, not `if` — several members can exit between two consecutive entry events.
+(Full `for` vs `while` rules below.)
+
+---
+
+### Choosing `for` vs `while` — the loop-slot rules
+
+**The one question: what drives progress — the input, or the state?**
+
+- **Input drives** → `for`. One iteration consumes exactly one item; count known upfront.
+- **State drives** → `while`. Iteration count unknown; the loop ends when a condition
+  on *your state* flips.
+
+This is Q1 again: **if the sweep axis IS the sorted input, the outer loop is `for`.
+If the sweep axis is state that does not exist as a column — a clock, a fuel level,
+a goal count — the outer loop is `while`.**
+
+A scheduling solution has up to three loop slots:
+
+| Slot | Job | Construct |
+|---|---|---|
+| **Outer** | walk the timeline | `for` if input is the timeline · `while` if state is the timeline · `for _ in range(k)` for fixed rounds |
+| **Admit** | pull newly-unlocked items in via a pointer | **always `while`** — many items can unlock at one instant |
+| **Expire / evict** | shrink the live set | `while` if you need **exact state** · `if` if you need **yes/no**, or if one step provably restores the invariant |
+
+#### Outer loop — worked contrast
+
+```python
+# Car Pooling: the timeline IS the input (each trip is an event)
+for num, start, end in trips:          # for — one iteration per trip
+    ...
+
+# Refueling Stops: the timeline is FUEL — state, not a column
+while fuel < target:                   # while — unknown number of refuels
+    while i < len(stations) and stations[i][0] <= fuel:   # admit — always while
+        heapq.heappush(h, -stations[i][1]); i += 1
+    if not h: return -1
+    fuel += -heapq.heappop(h); stops += 1
+
+# IPO: neither — a fixed number of rounds, known upfront
+for _ in range(k):
+    while i < len(by_capital) and by_capital[i][0] <= w:
+        heapq.heappush(affordable, -by_capital[i][1]); i += 1
+    if not affordable: break
+    w += -heapq.heappop(affordable)
+```
+
+In Refueling you cannot write `for station in stations` — an iteration may consume
+zero stations or five. The input is not the clock.
+
+#### Expire loop — `while` vs `if`
+
+**Discriminator: do I need the state to be exact, or only a yes/no?**
+
+```python
+# Car Pooling — needs the EXACT passenger count → drain everything expired
+while heap and heap[0][0] <= start:
+    current -= heapq.heappop(heap)[1]
+```
+`current` feeds `if current > capacity`. Pop one when three exited and the count is
+wrong. **Exact → `while`.**
+
+```python
+# Meeting Rooms II — needs only "is ANY room free?" → one check suffices
+if ends and ends[0] <= s:
+    heapq.heapreplace(ends, e)
+else:
+    heapq.heappush(ends, e)
+```
+You never ask *how many* rooms are free. `len(ends)` is still peak concurrency because
+it only grows when nothing is free. **Yes/no → `if`.** Here `while` is an actual bug —
+`heapreplace` in a loop re-pushes the same meeting's end time.
+
+```python
+# Course Schedule III — one pop PROVABLY restores the invariant
+if total > end:
+    total += heapq.heappop(h)
+```
+Before the push, `total <= end`. You added `dur`. The popped item is the max, so
+`popped >= dur`, hence `total - popped <= total - dur <= end`. One pop always suffices.
+`while` here is not wrong, but it signals you did not verify the invariant.
+
+#### Two tests to run on any inner loop
+
+1. *"Can two of these events fall between two consecutive outer iterations?"*
+   Yes → `while`.
+2. *"Do I need the exact number, or just existence?"*
+   Existence → `if`.
+
+#### Loop smells
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "I ran out of items but have not reached the goal" | `for` used where the sweep axis is state | `while <goal>` + a pointer over the input |
+| "I need to process this item again" | same | same |
+| Passes spread-out tests, fails when two events share an instant | `if` used for an admit or drain loop | `while` |
+| Same item pushed twice / counts inflate | `while` wrapped around a `heapreplace` | `if` — you only wanted yes/no |
+| An iteration consumes zero input items | outer `for` is structurally wrong | `while` |
+| **Maintaining both `t` and `pos`, having to reason about whether they agree** | **built a clock when the input already was one** | **`for t, x in enumerate(...)`** |
+
+#### Worked failure — two clocks (LC 1882)
+
+LC 1882 says *"task `j` is inserted into the queue at second `j`."* **The task index IS
+the clock** — the sweep axis is the input itself, so the outer loop is `for` and `t` is
+*given*, never maintained.
+
+Hand-rolling the clock instead (`while pos < n` plus a `t` you advance yourself) fails:
+
+```python
+if sevs:
+    t += 1           # BUG: only lets one backlogged task through per tick
+else:
+    t = cooling[0][0]
+```
+
+After the clock jumps past `pos`, several tasks have *already arrived*. When servers
+free up they must all be assigned **at the same second**; `t += 1` serialises them and
+inflates every later `t + duration`.
+
+```
+servers = [5, 1], tasks = [6, 5, 1, 4]
+two-clock version → [1, 0, 1, 1]
+correct           → [1, 0, 1, 0]
+```
+
+The fix that deletes the clock entirely — when nothing is free, do not advance time and
+retry; commit the task to the earliest-freeing server and start it at **its** free time:
+
+```python
+for t, dur in enumerate(tasks):            # t IS the arrival second
+    while busy and busy[0][0] <= t:
+        ft, w, i = heapq.heappop(busy)
+        heapq.heappush(free, (w, i))
+    if free:
+        w, i = heapq.heappop(free)
+        heapq.heappush(busy, (t + dur, w, i))
+    else:
+        ft, w, i = heapq.heappop(busy)     # no server free
+        heapq.heappush(busy, (ft + dur, w, i))   # starts at ft, not t
+    res.append(i)
+```
+
+FIFO among waiting tasks is automatic because tasks are iterated in index order.
+
+**Rule:** *if the problem defines arrival time as a function of index, the index is the
+clock — do not build a second one. Two clocks means one of them is wrong.*
 
 ---
 
