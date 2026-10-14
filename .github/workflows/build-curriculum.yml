@@ -50,6 +50,11 @@ jobs:
               sys.exit("Counts look wrong - refusing to commit this build")
           PY
 
+      - name: Headless page tests
+        run: |
+          node tools/test_ui.js
+          node tools/test_structure.js
+
       - name: Commit if the data changed
         run: |
           if git diff --quiet -- docs/data/curriculum.json; then

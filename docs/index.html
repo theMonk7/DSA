@@ -461,6 +461,20 @@ h1.page-title{font-family:var(--display);font-size:30px;font-weight:600;letter-s
 
 /* concept card */
 .concept-body{padding:14px 18px 18px}
+.part{border-top:1px solid var(--border)}
+.part-head{display:flex;align-items:center;gap:10px;padding:9px 18px}
+.part-head:hover{background:var(--surface-2)}
+.part.is-done .part-title{color:var(--ink-3);text-decoration:line-through;
+  text-decoration-color:var(--ink-3)}
+.part-title{flex:1;min-width:0;background:none;border:0;text-align:left;padding:0;
+  font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;color:var(--ink)}
+.part-title:hover{color:var(--accent)}
+.part-body{padding:2px 18px 16px;background:var(--surface-2)}
+.part-chev{color:var(--ink-3);display:flex;flex:none;width:19px;justify-content:center;
+  transition:transform .18s}
+.part-chev.open{transform:rotate(90deg)}
+.part[data-depth="1"] .part-head{background:color-mix(in srgb,var(--surface-2) 60%,transparent)}
+@media (max-width:860px){.part-body{padding-left:18px!important}}
 .concept-sub{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
 .subchip{font-size:11px;color:var(--ink-3);background:var(--surface-3);
   border-radius:5px;padding:2.5px 8px;border:1px solid var(--border)}
@@ -974,7 +988,12 @@ function rebuildData(){
         ALL_PROBLEMS.push({item:it,topic:t,group:g});
       });
     });
-    t.concepts.forEach(function(c){ITEM_TOPIC[c.id]=t.title;});
+    t.concepts.forEach(function(c){
+      ITEM_TOPIC[c.id]=t.title;
+      (function walk(ns){
+        (ns||[]).forEach(function(n){ITEM_TOPIC[n.id]=t.title;walk(n.children);});
+      })(c.parts);
+    });
   });
 }
 function persistCustom(msg){
@@ -1294,12 +1313,35 @@ function passTags(id){
 }
 
 /* ---------- counting ---------- */
-function matches(title,extra){
+/* Markdown punctuation must not block a match: the heading
+   "Choosing `for` vs `while`" has to be findable by typing "for vs while".
+   Both sides collapse to lowercase words separated by single spaces. */
+function normText(s){
+  return (" "+String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]+/g," ")+" ");
+}
+var HAY={};              // cache for large, static concept bodies
+function matches(hay,extra,key){
   if(!query)return true;
-  return ((title+" "+(extra||"")).toLowerCase().indexOf(query)!==-1);
+  var h;
+  if(key){ h=HAY[key]; if(h===undefined)h=HAY[key]=normText(hay+" "+(extra||"")); }
+  else h=normText(hay+" "+(extra||""));
+  var q=normText(query).replace(/^ +| +$/g,"");
+  return !q||h.indexOf(q)!==-1;
 }
 function conceptHaystack(c,topicTitle){
-  return c.title+" "+(topicTitle||"")+" "+c.content;
+  var parts=(c.parts||[]).map(nodeText).join(" ");
+  return c.title+" "+(topicTitle||"")+" "+c.content+" "+parts;
+}
+/* A section shows when it matches, or when any of its subsections does. */
+function conceptVisible(c,topicTitle){
+  var units=conceptUnits(c);
+  for(var i=0;i<units.length;i++){
+    var u=units[i];
+    if(!passFilter(u.id))continue;
+    if(u===c){ if(matches(conceptHaystack(c,topicTitle),"",c.id))return true; }
+    else if(matches(nodeText(u)+" "+c.title+" "+(topicTitle||""),"",u.id))return true;
+  }
+  return false;
 }
 function passFilter(id){
   var s=st(id);
@@ -1309,9 +1351,35 @@ function passFilter(id){
   if(filter==="repeat")return s.repeat;
   return true;
 }
+function leafUnits(node){
+  if(node.children&&node.children.length){
+    var out=[];
+    node.children.forEach(function(ch){out=out.concat(leafUnits(ch));});
+    return out;
+  }
+  return [node];
+}
+function conceptUnits(c){
+  // A heading with children is a container; the deepest headings are what you
+  // tick. Works at any depth, so a new ####? or ##### just slots in.
+  if(c.parts&&c.parts.length){
+    var out=[];
+    c.parts.forEach(function(pt){out=out.concat(leafUnits(pt));});
+    return out;
+  }
+  return [c];
+}
+function nodeText(node){
+  var t=node.title+" "+node.content;
+  (node.children||[]).forEach(function(ch){t+=" "+nodeText(ch);});
+  return t;
+}
 function conceptCount(t){
-  var d=0;t.concepts.forEach(function(c){if(isDone(c.id))d++;});
-  return {done:d,total:t.concepts.length};
+  var d=0,n=0;
+  t.concepts.forEach(function(c){
+    conceptUnits(c).forEach(function(u){n++;if(isDone(u.id))d++;});
+  });
+  return {done:d,total:n};
 }
 function problemCount(t){
   var d=0,n=0;
@@ -1479,32 +1547,97 @@ function highlightIn(root){
 
 /* ---------- concepts ---------- */
 function conceptCard(c){
-  var done=isDone(c.id), open=!!openSec[c.id], s=st(c.id);
-  var hasNote=!!(s.note&&s.note.trim());
+  var parts=c.parts&&c.parts.length?c.parts:null;
+  var units=conceptUnits(c);
+  var cd=0;units.forEach(function(u){if(isDone(u.id))cd++;});
+  var open=!!openSec[c.id];
+  var s=st(c.id), hasNote=!!(s.note&&s.note.trim());
+  var allDone=cd===units.length&&units.length>0;
+
   var h='<section class="section'+(open?" open":"")+'" data-sec="'+esc(c.id)+'">'+
-    '<div class="sec-head" style="cursor:default">'+
-      '<button class="tick" data-tick="'+esc(c.id)+'" aria-pressed="'+done+'" aria-label="Mark concept as read">'+
-        '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6.2 4.4 9 10.5 2.8"/></svg></button>'+
-      '<button class="sec-title" data-sechead="'+esc(c.id)+'" style="background:none;border:0;text-align:left;padding:0;font:inherit;font-weight:600;cursor:pointer">'+
-        esc(c.title)+(hasNote?' <span class="tag has-note">note</span>':'')+'</button>'+
-      '<button class="mini" data-sechead="'+esc(c.id)+'" aria-expanded="'+open+'">'+(open?"Hide":"Read")+'</button>'+
-      '<span class="chev"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5 8 6l-4 3.5"/></svg></span>'+
-    '</div><div class="sec-body"><div class="concept-body">';
-  if(open){
-    if(c.subheads&&c.subheads.length){
-      h+='<div class="concept-sub">';
-      c.subheads.forEach(function(s2){h+='<span class="subchip">'+esc(s2.title)+'</span>';});
-      h+='</div>';
-    }
-    h+='<div class="md" data-md="1">'+renderMd(c.content,c.id)+'</div>';
-    h+='<div class="concept-foot">'+
-      '<button class="mini" data-detail="'+esc(c.id)+'" aria-expanded="'+(!!openDetail[c.id])+'">My notes</button>'+
-      '<button class="btn-ghost" data-tick="'+esc(c.id)+'" style="padding:5px 11px;font-size:12.5px">'+
-        (done?"Marked as read ✓":"Mark as read")+'</button></div>';
-    if(openDetail[c.id])h+=noteBlock(c.id,null);
+    '<div class="sec-head" style="cursor:default">';
+  if(parts){
+    // container: no tick of its own, it shows how many of its subsections are read
+    h+='<span class="chev"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5 8 6l-4 3.5"/></svg></span>';
+  }else{
+    h+='<button class="tick" data-tick="'+esc(c.id)+'" aria-pressed="'+isDone(c.id)+
+       '" aria-label="Mark concept as read"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6.2 4.4 9 10.5 2.8"/></svg></button>';
   }
-  h+='</div></div></section>';
+  h+='<button class="sec-title" data-sechead="'+esc(c.id)+'" style="background:none;border:0;text-align:left;padding:0;font:inherit;font-weight:600;cursor:pointer">'+
+      esc(c.title)+(hasNote?' <span class="tag has-note">note</span>':'')+'</button>'+
+    (parts?'<span class="sec-bar'+(allDone?" done":"")+'"><i style="width:'+
+      (units.length?cd/units.length*100:0)+'%"></i></span>'+
+      '<span class="sec-count tnum">'+cd+'/'+units.length+'</span>':'')+
+    '<button class="mini" data-sechead="'+esc(c.id)+'" aria-expanded="'+open+'">'+
+      (open?"Hide":(parts?"Open":"Read"))+'</button>'+
+    (parts?'':'<span class="chev"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5 8 6l-4 3.5"/></svg></span>')+
+    '</div><div class="sec-body">';
+
+  if(open){
+    if(c.content&&c.content.trim())
+      h+='<div class="concept-body"><div class="md" data-md="1">'+renderMd(c.content,c.id)+'</div></div>';
+    if(parts){
+      parts.forEach(function(pt){h+=conceptPart(pt,0);});
+    }else{
+      h+='<div class="concept-body"><div class="concept-foot" style="border-top:0;margin-top:0;padding-top:0">'+
+        '<button class="mini" data-detail="'+esc(c.id)+'" aria-expanded="'+(!!openDetail[c.id])+'">My notes</button>'+
+        '<button class="btn-ghost" data-tick="'+esc(c.id)+'" style="padding:5px 11px;font-size:12.5px">'+
+          (isDone(c.id)?"Marked as read \u2713":"Mark as read")+'</button></div>'+
+        (openDetail[c.id]?noteBlock(c.id,null):'')+'</div>';
+    }
+  }
+  h+='</div></section>';
   return h;
+}
+
+/* One heading node at any depth. A node with children is a container with a
+   counter; a leaf is tickable. Depth only changes the indent. */
+function conceptPart(node,depth){
+  depth=depth||0;
+  var kids=node.children&&node.children.length?node.children:null;
+  var units=leafUnits(node), cd=0;
+  units.forEach(function(u){if(isDone(u.id))cd++;});
+  var open=!!openSec[node.id];
+  var s=st(node.id), hasNote=!!(s.note&&s.note.trim());
+  var done=isDone(node.id);
+  var pad=18+depth*16;
+
+  var h='<div class="part'+(!kids&&done?" is-done":"")+'" data-depth="'+depth+'">'+
+    '<div class="part-head" style="padding-left:'+pad+'px">';
+  if(kids){
+    h+='<span class="part-chev'+(open?" open":"")+'">'+
+       '<svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5 8 6l-4 3.5"/></svg></span>';
+  }else{
+    h+='<button class="tick" data-tick="'+esc(node.id)+'" aria-pressed="'+done+
+       '" aria-label="Mark as read"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6.2 4.4 9 10.5 2.8"/></svg></button>';
+  }
+  h+='<button class="part-title" data-sechead="'+esc(node.id)+'">'+esc(node.title)+
+      (hasNote?' <span class="tag has-note">note</span>':'')+'</button>'+
+    (kids?'<span class="sec-bar'+(cd===units.length?" done":"")+'"><i style="width:'+
+      (units.length?cd/units.length*100:0)+'%"></i></span>'+
+      '<span class="sec-count tnum">'+cd+'/'+units.length+'</span>':'')+
+    '<button class="mini" data-sechead="'+esc(node.id)+'" aria-expanded="'+open+'">'+
+      (open?"Hide":(kids?"Open":"Read"))+'</button>'+
+    '</div>';
+
+  if(open){
+    if(node.content&&node.content.trim())
+      h+='<div class="part-body" style="padding-left:'+(pad+29)+'px">'+
+         '<div class="md" data-md="1">'+renderMd(node.content,node.id)+'</div>'+
+         (kids?'':'<div class="concept-foot">'+
+           '<button class="mini" data-detail="'+esc(node.id)+'" aria-expanded="'+
+             (!!openDetail[node.id])+'">My notes</button></div>'+
+           (openDetail[node.id]?noteBlock(node.id,null):''))+
+         '</div>';
+    else if(!kids)
+      h+='<div class="part-body" style="padding-left:'+(pad+29)+'px">'+
+         '<div class="concept-foot" style="border-top:0;padding-top:0;margin-top:0">'+
+         '<button class="mini" data-detail="'+esc(node.id)+'" aria-expanded="'+
+           (!!openDetail[node.id])+'">My notes</button></div>'+
+         (openDetail[node.id]?noteBlock(node.id,null):'')+'</div>';
+    if(kids)kids.forEach(function(ch){h+=conceptPart(ch,depth+1);});
+  }
+  return h+'</div>';
 }
 
 function tagEditor(id){
@@ -1683,8 +1816,7 @@ function renderTopic(){
          'Its problems are under the <strong>Problems</strong> tab.</div>';
     }else{
       t.concepts.forEach(function(cc){
-        if(!passFilter(cc.id))return;
-        if(!matches(conceptHaystack(cc,t.title),""))return;
+        if(!conceptVisible(cc,t.title))return;
         shown++;h+=conceptCard(cc);
       });
       if(!shown)h+='<div class="empty">No concept section matches this filter.</div>';
@@ -1910,10 +2042,14 @@ function renderSearch(){
   var concepts=[];
   DATA.topics.forEach(function(t){
     t.concepts.forEach(function(c){
-      if(!passFilter(c.id))return;
       if(activeTags.length)return;          // concepts carry no tags
-      if(!matches(conceptHaystack(c,t.title),""))return;
-      concepts.push({topic:t,concept:c});
+      conceptUnits(c).forEach(function(u){
+        if(!passFilter(u.id))return;
+        var hay=(u===c)?conceptHaystack(c,t.title)
+                       :(nodeText(u)+" "+c.title+" "+t.title);
+        if(!matches(hay,"",u.id))return;
+        concepts.push({topic:t,concept:u,parent:(u===c?null:c)});
+      });
     });
   });
 
@@ -1948,6 +2084,7 @@ function renderSearch(){
         '<button class="tick" data-tick="'+esc(c.concept.id)+'" aria-pressed="'+isDone(c.concept.id)+
         '" aria-label="Mark as read"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 6.2 4.4 9 10.5 2.8"/></svg></button>'+
         '<span class="sec-title">'+esc(c.concept.title)+
+        (c.parent?' <span class="tag">in '+esc(c.parent.title)+'</span>':'')+
         ' <span class="tag" style="margin-left:4px">'+esc(c.topic.title)+'</span></span>'+
         '<button class="mini" data-gotopic="'+esc(c.topic.id)+'">Open module</button></div></section>';
     });

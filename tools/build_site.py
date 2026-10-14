@@ -165,12 +165,37 @@ def parse_notes(stem, path):
         stop = h2pos[k+1] if k+1 < len(h2pos) else len(lines)
         raw_title = re.match(r"^## (.+)", lines[start]).group(1).strip()
         title = strip_num(raw_title)
-        block = "".join(lines[start+1:stop]).strip("\n")
-        subheads = [{"title": clean_title(m.group(1).strip()),
-                     "id": slugify(stem+"-"+m.group(1).strip())}
-                    for m in (re.match(r"^### (.+)", l) for l in lines[start+1:stop]) if m]
-        concepts.append({"id": slugify(stem+"-"+raw_title), "title": title,
-                         "content": block, "subheads": subheads})
+
+        # Any heading deeper than ## becomes a node in a tree under this section,
+        # nested by its own level. Add a ###, a ####, or a ##### anywhere and it
+        # renders in the right place with no code change.
+        heads = []
+        for li in range(start + 1, stop):
+            m = re.match(r"^(#{3,6}) (.+)", lines[li])
+            if m:
+                heads.append((li, len(m.group(1)), m.group(2).strip()))
+
+        first = heads[0][0] if heads else stop
+        preamble = "".join(lines[start + 1:first]).strip("\n")
+
+        nodes, stack = [], []
+        for n, (li, lvl, ht) in enumerate(heads):
+            nxt = heads[n + 1][0] if n + 1 < len(heads) else stop
+            node = {
+                "id": slugify(stem + "-" + ht),
+                "title": clean_title(ht),
+                "level": lvl,
+                "content": "".join(lines[li + 1:nxt]).strip("\n"),
+                "children": [],
+            }
+            # a heading closes every open heading at its level or deeper
+            while stack and stack[-1][0] >= lvl:
+                stack.pop()
+            (stack[-1][1]["children"] if stack else nodes).append(node)
+            stack.append((lvl, node))
+
+        concepts.append({"id": slugify(stem + "-" + raw_title), "title": title,
+                         "content": preamble, "parts": nodes})
 
         items = []
         # (a) ### headings carrying an LC tag
@@ -238,11 +263,14 @@ for t in out:
             seen.add(it["id"])
 
 nc = sum(len(t["concepts"]) for t in out)
+def _count_nodes(ns):
+    return sum(1 + _count_nodes(n["children"]) for n in ns)
+npart = sum(_count_nodes(c.get("parts") or []) for t in out for c in t["concepts"])
 npz = sum(len(g["items"]) for t in out for g in t["problems"])
 nnotes = sum(1 for t in out for g in t["problems"] for it in g["items"] if it["source"]=="notes")
 def kcount(k): return sum(1 for t in out for g in t["problems"] for it in g["items"] if it.get("urlKind")==k)
 linked = sum(1 for t in out for g in t["problems"] for it in g["items"] if it.get("url"))
-print(f"topics={len(out)} conceptSections={nc} problems={npz} (notes={nnotes}, a2z={npz-nnotes})")
+print(f"topics={len(out)} conceptSections={nc} conceptParts={npart} problems={npz} (notes={nnotes}, a2z={npz-nnotes})")
 print(f"links: {linked}/{npz} -> leetcode {kcount('leetcode')}, takeUforward {kcount('tuf')}, "
       f"tuf-article {kcount('article')}, lc-search {kcount('search')}, none {npz-linked}")
 for t in out:
@@ -252,7 +280,7 @@ meta = {
   "generatedAt": datetime.datetime.now(datetime.timezone.utc)
                    .replace(microsecond=0).isoformat().replace("+00:00","Z"),
   "source": "notes/*.md + Striver A2Z sheet",
-  "topics": len(out), "conceptSections": nc, "problems": npz,
+  "topics": len(out), "conceptSections": nc, "conceptParts": npart, "problems": npz,
 }
 json.dump({"topics": out, "meta": meta},
           open(OUT,"w",encoding="utf-8"), ensure_ascii=False)

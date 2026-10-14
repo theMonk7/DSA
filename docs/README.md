@@ -193,6 +193,8 @@ The page itself (`docs/index.html`) only changes when you edit it directly.
 | You add | Result |
 |---|---|
 | a `##` section in an existing file | new concept section in that module |
+| a `###` subsection | new entry nested under its `##` section |
+| a `####` or deeper | new entry nested under its parent heading |
 | a `###` heading tagged `(LC 42)` | new problem in that module |
 | a `def f(...):  # LC 42` line | new problem in that module |
 | a whole new `notes/<name>.md` | a new module, titled from the filename |
@@ -212,8 +214,16 @@ notes commit, the workflow did not run — check the Actions tab.
 
 ## How the notes are parsed
 
-- Each `##` heading becomes one **concept section**, carrying its whole markdown
-  body — every `###` subsection, code block and table under it. Nothing is dropped.
+- `#` is the file title and is ignored. Each `##` is a **top-level section** of
+  that module. Everything deeper — `###`, `####`, `#####`, `######` — becomes a
+  node nested by its own level, to any depth.
+- A heading **with** children is a container: no tick, but a counter and bar
+  showing how many of its leaves you have read. A heading **with no** children is
+  a leaf: that is what you tick, and where its notes live. A `##` with nothing
+  under it is itself a leaf.
+- Indentation follows depth, so the page mirrors the shape of the markdown. Add a
+  `####` under an existing `###` and it renders in the right place; add a whole
+  new `##` and it becomes a new section. No code change either way.
 - A **problem** is picked up two ways: a `###` heading tagged `(LC 42)`, or a
   `def some_function(...):  # LC 42` line in a code block. Problems are grouped
   under the `##` section they appear in, so the grouping follows your own pattern
