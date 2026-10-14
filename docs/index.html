@@ -636,6 +636,7 @@ button.tag{font-family:var(--mono);cursor:pointer}
 "use strict";
 
 var BASE=null;                 // generated from notes/*.md — never written to
+var META={};                   // build stamp from the generator
 var CUSTOM={topics:[],groups:[],items:[]};   // viewer's own modules and problems
 var DATA=null, STATE={}, store=null;
 var ITEM_TOPIC={}, ALL_PROBLEMS=[];
@@ -1382,6 +1383,19 @@ function ring(p){
    'stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+(C*(1-p/100))+
    '" transform="rotate(-90 59 59)"/></svg>';
 }
+/* How fresh the generated data is. If this lags behind your last notes commit,
+   the rebuild did not run. */
+function buildStamp(){
+  if(!META.generatedAt)return "";
+  var ts=Date.parse(META.generatedAt);
+  if(isNaN(ts))return "";
+  var mins=Math.floor((Date.now()-ts)/60000), rel;
+  if(mins<2)rel="just now";
+  else if(mins<60)rel=mins+" minutes ago";
+  else if(mins<2880)rel=Math.floor(mins/60)+" hours ago";
+  else rel=Math.floor(mins/1440)+" days ago";
+  return ' \u00b7 <span title="'+esc(META.generatedAt)+'">data built '+rel+'</span>';
+}
 function renderDash(){
   var a=allCount();
   var h="";
@@ -1395,7 +1409,7 @@ function renderDash(){
   }
   h+='<h1 class="page-title">Progress</h1><p class="page-sub">'+
     DATA.topics.length+' topics · '+a.ctotal+' concept sections from your notes · '+
-    a.ptotal+' problems</p>';
+    a.ptotal+' problems'+buildStamp()+'</p>';
   h+='<div class="hero"><div class="ring-wrap">'+ring(pct(a.done,a.total))+
     '<div class="ring-label"><span class="ring-pct tnum">'+pct(a.done,a.total)+'%</span>'+
     '<span class="ring-cap">complete</span></div></div><div class="hero-stats">'+
@@ -2329,7 +2343,7 @@ fetch("data/curriculum.json").then(function(r){
   if(!r.ok)throw new Error("HTTP "+r.status);
   return r.json();
 }).then(function(d){
-  BASE=d; rebuildData();
+  BASE=d; META=d.meta||{}; rebuildData();
   var hash=(location.hash||"").replace(/^#/,"");
   if(hash&&hash!=="dashboard"){
     for(var i=0;i<DATA.topics.length;i++)

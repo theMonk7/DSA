@@ -1,7 +1,7 @@
 import re, json, os, unicodedata
 from urllib.parse import quote
 
-ROOT = "/Users/utkarshraj/Documents/Learning/DSA"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC  = ROOT + "/notes"
 TMP  = os.path.dirname(os.path.abspath(__file__))
 OUT  = ROOT + "/docs/data/curriculum.json"
@@ -15,6 +15,16 @@ TITLE_MAP = {
  "subarrays":"Subarrays","trees":"Trees","tries":"Tries",
 }
 SKIP = {"README"}
+_SMALL = {"a","an","and","as","at","but","by","for","in","of","on","or","the","to","vs","with"}
+def humanize_stem(stem):
+    """segment_trees -> Segment Trees. Any new notes file gets a sane title with
+    no code change; TITLE_MAP only overrides where we want something different."""
+    words = [w for w in re.split(r"[_\-\s]+", stem) if w]
+    out = []
+    for i, w in enumerate(words):
+        lw = w.lower()
+        out.append(lw if (i and lw in _SMALL) else lw.capitalize())
+    return " ".join(out) or stem
 LC_HEAD = re.compile(r"\(LC\s*([0-9][0-9/ ]*[0-9]|[0-9]+)\)")
 LC_CODE = re.compile(r"^\s*def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(.*?#\s*LC\s*([0-9]+)(?::\s*(.*))?$")
 
@@ -198,7 +208,7 @@ for fname in sorted(os.listdir(SRC)):
     stem = fname[:-3]
     if stem in SKIP: continue
     concepts, groups = parse_notes(stem, os.path.join(SRC, fname))
-    topics[stem] = {"id": stem, "title": TITLE_MAP.get(stem, stem.title()),
+    topics[stem] = {"id": stem, "title": TITLE_MAP.get(stem, humanize_stem(stem)),
                     "concepts": concepts, "problems": groups}
 
 NEW = {"fundamentals":"Fundamentals","sorting":"Sorting",
@@ -237,6 +247,14 @@ print(f"links: {linked}/{npz} -> leetcode {kcount('leetcode')}, takeUforward {kc
       f"tuf-article {kcount('article')}, lc-search {kcount('search')}, none {npz-linked}")
 for t in out:
     print(f"  {t['id']:16s} concepts={len(t['concepts']):3d}  problemGroups={len(t['problems']):3d}  problems={sum(len(g['items']) for g in t['problems']):4d}")
-json.dump({"topics":out, "generated": "notes/*.md + Striver A2Z sheet"},
+import datetime
+meta = {
+  "generatedAt": datetime.datetime.now(datetime.timezone.utc)
+                   .replace(microsecond=0).isoformat().replace("+00:00","Z"),
+  "source": "notes/*.md + Striver A2Z sheet",
+  "topics": len(out), "conceptSections": nc, "problems": npz,
+}
+json.dump({"topics": out, "meta": meta},
           open(OUT,"w",encoding="utf-8"), ensure_ascii=False)
+print("generatedAt", meta["generatedAt"])
 print("wrote", OUT, os.path.getsize(OUT), "bytes")

@@ -165,12 +165,50 @@ id is already present.
 
 ## Rebuilding after you edit your notes
 
+**You normally do nothing.** `.github/workflows/build-curriculum.yml` reruns the
+build on every push that touches `notes/**.md`, `tools/build_site.py` or the
+cached A2Z payload, and commits the regenerated `docs/data/curriculum.json` back
+to `main`. GitHub Pages then redeploys, so a new section is live a minute or two
+after you push the note.
+
+The workflow needs **Settings → Actions → General → Workflow permissions →
+Read and write permissions**, otherwise the commit-back step fails with a 403.
+You can also trigger it by hand from the Actions tab (*Run workflow*).
+
+Before committing it checks the parse did not collapse (at least 5 topics, 50
+concept sections and 200 problems). A broken parser fails the run instead of
+publishing an empty dashboard.
+
+To run it locally:
+
 ```sh
-python3 tools/build_site.py
+python3 tools/build_site.py    # rewrites docs/data/curriculum.json
+node tools/test_ui.js          # headless check that the page still renders
 ```
 
-That reparses every `notes/*.md` and rewrites `docs/data/curriculum.json`.
 The page itself (`docs/index.html`) only changes when you edit it directly.
+
+### What gets picked up automatically
+
+| You add | Result |
+|---|---|
+| a `##` section in an existing file | new concept section in that module |
+| a `###` heading tagged `(LC 42)` | new problem in that module |
+| a `def f(...):  # LC 42` line | new problem in that module |
+| a whole new `notes/<name>.md` | a new module, titled from the filename |
+
+`segment_trees.md` becomes **Segment Trees** with no code change. Add it to
+`TITLE_MAP` and `ORDER` in `tools/build_site.py` only if you want a different
+display name or a specific position; unlisted modules sort to the end.
+
+Item ids come from heading text, not position, so inserting a section never
+renumbers anything — a rebuild adds ids and removes none, and your ticks, notes
+and tags stay attached. Verified by diffing ids across a rebuild: 0 disappeared.
+The one thing that does break the link is **renaming a heading**, which reads as
+"old item gone, new item added".
+
+The dashboard shows *data built N hours ago*. If that lags behind your last
+notes commit, the workflow did not run — check the Actions tab.
 
 ## How the notes are parsed
 

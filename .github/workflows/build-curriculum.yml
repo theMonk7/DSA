@@ -1,0 +1,64 @@
+name: Rebuild curriculum
+
+# Regenerates docs/data/curriculum.json from notes/*.md whenever the notes change,
+# so a new section or a whole new topic file shows up on the site after a push
+# without anyone running the build by hand.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'notes/**.md'
+      - 'tools/build_site.py'
+      - 'tools/a2z_payload.txt'
+      - '.github/workflows/build-curriculum.yml'
+  workflow_dispatch:        # lets you force a rebuild from the Actions tab
+
+# Needed to push the regenerated data file back to the branch.
+permissions:
+  contents: write
+
+# A second push while one run is in flight supersedes it rather than racing it.
+concurrency:
+  group: rebuild-curriculum
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebuild curriculum.json
+        run: python3 tools/build_site.py
+
+      - name: Fail if the build produced nothing usable
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("docs/data/curriculum.json"))
+          topics = d.get("topics", [])
+          problems = sum(len(g["items"]) for t in topics for g in t["problems"])
+          concepts = sum(len(t["concepts"]) for t in topics)
+          print(f"{len(topics)} topics, {concepts} concept sections, {problems} problems")
+          # A parser regression would show up as a collapse in these counts, and
+          # committing that would wipe the dashboard. Refuse instead.
+          if len(topics) < 5 or concepts < 50 or problems < 200:
+              sys.exit("Counts look wrong - refusing to commit this build")
+          PY
+
+      - name: Commit if the data changed
+        run: |
+          if git diff --quiet -- docs/data/curriculum.json; then
+            echo "curriculum.json unchanged - nothing to commit"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data/curriculum.json
+          # [skip ci] stops this commit from re-triggering the workflow.
+          git commit -m "Rebuild curriculum from notes [skip ci]"
+          git push
