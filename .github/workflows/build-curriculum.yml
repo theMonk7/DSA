@@ -54,6 +54,7 @@ jobs:
         run: |
           node tools/test_ui.js
           node tools/test_structure.js
+          node tools/test_stats.js
 
       - name: Commit if the data changed
         run: |

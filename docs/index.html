@@ -211,6 +211,29 @@ img{max-width:100%}[hidden]{display:none!important}
   --kw:#8a3a7a; --str:#2d6a4a; --num:#8a6412; --com:#8b94a0;
   --shadow:0 1px 2px rgba(20,25,34,.06), 0 4px 14px rgba(20,25,34,.05);
 }
+:root{
+  /* Chart hues are NOT the UI accent: the accent fails the chroma floor at mark
+     size. These three passed the validator (lightness band, chroma, CVD
+     separation, contrast) on every palette surface, light and dark. */
+  --ch1:#0f8a77; --ch2:#c2770d; --ch3:#4450c8;
+  --ch1-fill:rgba(15,138,119,.14);
+  --chart-empty:#e4e8ec; --grid:#e8ecf0;
+  --heat1:#bfe0d9; --heat2:#7cc3b5; --heat3:#3fa08e; --heat4:#0f8a77;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ch1:#2aa894; --ch2:#bf8428; --ch3:#7b86e8;
+    --ch1-fill:rgba(42,168,148,.16);
+    --chart-empty:#232c36; --grid:#242d37;
+    --heat1:#17433b; --heat2:#1d6a5c; --heat3:#23907c; --heat4:#2aa894;
+  }
+}
+:root[data-theme="dark"]{
+  --ch1:#2aa894; --ch2:#bf8428; --ch3:#7b86e8;
+  --ch1-fill:rgba(42,168,148,.16);
+  --chart-empty:#232c36; --grid:#242d37;
+  --heat1:#17433b; --heat2:#1d6a5c; --heat3:#23907c; --heat4:#2aa894;
+}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
@@ -277,6 +300,58 @@ a{color:var(--accent)}
   border-radius:7px;padding:5px 9px;font:inherit;font-size:12.5px;color:var(--ink)}
 .tag-add input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
 .res-topic{font-family:var(--display);font-size:15px;font-weight:600;margin:18px 0 8px}
+
+/* analytics */
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(142px,1fr));gap:10px;margin-bottom:20px}
+.kpi.small{margin-bottom:0;grid-template-columns:repeat(auto-fit,minmax(118px,1fr))}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:13px 14px;display:flex;flex-direction:column;gap:2px}
+.tile-v{font-family:var(--mono);font-size:23px;font-weight:600;line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.tile.hero{border-color:var(--ch1);background:var(--surface)}
+.tile.hero .tile-v{font-size:40px;color:var(--ch1)}
+.tile-l{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:600;margin-top:3px}
+.tile-s{font-size:11.5px;color:var(--ink-3)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:14px;overflow:hidden}
+.panel h3{font-family:var(--display);font-size:16px;font-weight:600;margin:0 0 2px}
+.panel-sub{font-size:12px;color:var(--ink-3);margin:0 0 14px}
+.panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.panel-grid .panel{margin-bottom:0}
+.chart-legend{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px;
+  font-size:11.5px;color:var(--ink-3)}
+.chart-legend b{font-family:var(--mono);color:var(--ink-2)}
+.chart-legend .key{width:11px;height:11px;border-radius:3px;display:inline-block;
+  vertical-align:middle;margin-right:4px}
+.chart-empty{font-size:12.5px;color:var(--ink-3);font-style:italic;padding:18px 0}
+.cell{transition:none}
+.cell:hover{stroke:var(--ink-2);stroke-width:1.5}
+.note-banner{background:var(--accent2-soft);border:1px solid var(--accent2-line);
+  color:var(--ink-2);border-radius:var(--radius);padding:10px 14px;font-size:12.5px;
+  margin-bottom:16px}
+.stack-row{display:flex;align-items:center;gap:11px;margin-bottom:9px}
+.stack-label{width:96px;flex:none;font-size:12.5px;color:var(--ink-2)}
+.stack{flex:1;min-width:0;height:13px;border-radius:4px;overflow:hidden;display:flex;
+  background:var(--chart-empty);gap:2px}
+.seg{display:block;height:100%}
+.stack-n{width:64px;flex:none;text-align:right;font-family:var(--mono);font-size:11.5px;
+  color:var(--ink-3)}
+.mod-bars{display:flex;flex-direction:column;gap:5px}
+.mod-row{display:flex;align-items:center;gap:11px;width:100%;background:none;border:0;
+  padding:4px 6px;border-radius:7px;text-align:left}
+.mod-row:hover{background:var(--surface-2)}
+.mod-name{width:140px;flex:none;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.mod-track{flex:1;min-width:0;height:9px;border-radius:4px;background:var(--chart-empty);
+  overflow:hidden}
+.mod-track > i{display:block;height:100%;background:var(--ch1);border-radius:4px}
+.mod-n{width:62px;flex:none;text-align:right;font-family:var(--mono);font-size:11.5px;
+  color:var(--ink-3)}
+@media (max-width:620px){
+  .stack-label{width:74px}.mod-name{width:98px}
+  .tile.hero .tile-v{font-size:32px}
+}
 .res-topic:first-of-type{margin-top:0}
 .rail-label{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
   font-weight:600;padding:12px 8px 6px}
@@ -630,6 +705,10 @@ button.tag{font-family:var(--mono);cursor:pointer}
           <button id="fRep" aria-pressed="false" title="Marked to repeat">↻</button>
         </div>
         <button id="clearFilters" class="icon-btn danger-ghost" title="Clear search and filters" hidden>✕</button>
+        <button id="statsBtn" class="icon-btn" title="Analytics" aria-label="Open analytics">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round"><path d="M2 14h12"/><path d="M4 14V8"/>
+               <path d="M8 14V3"/><path d="M12 14v-4"/></svg></button>
         <div class="menu-wrap">
           <button id="paletteBtn" class="icon-btn" aria-haspopup="true" aria-expanded="false"
                   title="Theme">◉</button>
@@ -673,10 +752,12 @@ function toast(m){toastEl.textContent=m;toastEl.classList.add("show");
   clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove("show");},2400);}
 function st(id){
   var s=STATE[id];
-  if(!s)return {done:false,note:"",fav:false,repeat:false,tags:[],link:"",linkKind:""};
+  if(!s)return {done:false,note:"",fav:false,repeat:false,tags:[],link:"",linkKind:"",
+                doneAt:"",firstDoneAt:""};
   return {done:!!s.done,note:s.note||"",fav:!!s.fav,repeat:!!s.repeat,
           tags:Array.isArray(s.tags)?s.tags:[],
-          link:s.link||"",linkKind:s.linkKind||""};
+          link:s.link||"",linkKind:s.linkKind||"",
+          doneAt:s.doneAt||"",firstDoneAt:s.firstDoneAt||""};
 }
 function isDone(id){return !!st(id).done;}
 function setItem(id,patch){
@@ -896,13 +977,15 @@ function dbStore(db){
           m[d.id]={done:!!v.done,note:typeof v.note==="string"?v.note:"",
                    fav:!!v.fav,repeat:!!v.repeat,
                    tags:Array.isArray(v.tags)?v.tags:[],
-                   link:v.link||"",linkKind:v.linkKind||""};});
+                   link:v.link||"",linkKind:v.linkKind||"",
+                   doneAt:v.doneAt||"",firstDoneAt:v.firstDoneAt||""};});
         return m;});
     },
     save:function(id,rec){
       return db.collection("items").doc(id)
         .set({done:!!rec.done,note:rec.note||"",fav:!!rec.fav,repeat:!!rec.repeat,
               tags:rec.tags||[],link:rec.link||"",linkKind:rec.linkKind||"",
+              doneAt:rec.doneAt||"",firstDoneAt:rec.firstDoneAt||"",
               updatedAt:Date.now()})
         .then(function(){return true;}).catch(function(){return false;});
     },
@@ -915,7 +998,9 @@ function dbStore(db){
           db.collection("items").doc(id)
             .set({done:!!map[id].done,note:map[id].note||"",fav:!!map[id].fav,
                   repeat:!!map[id].repeat,tags:map[id].tags||[],
-                  link:map[id].link||"",linkKind:map[id].linkKind||"",updatedAt:Date.now()})
+                  link:map[id].link||"",linkKind:map[id].linkKind||"",
+                  doneAt:map[id].doneAt||"",firstDoneAt:map[id].firstDoneAt||"",
+                  updatedAt:Date.now()})
             .catch(function(){}).then(step);
         })();
       });
@@ -1310,6 +1395,97 @@ function passTags(id){
   for(var i=0;i<activeTags.length;i++)
     if(names.indexOf(activeTags[i])<0)return false;    // AND across tags
   return true;
+}
+
+/* ---------- analytics ----------
+   Everything here is derived from STATE, so it syncs with the gist like the rest
+   of your progress. Items ticked before dates were recorded have no doneAt and
+   are reported separately rather than guessed at. */
+function allUnits(){
+  var out=[];
+  DATA.topics.forEach(function(t){
+    t.concepts.forEach(function(c){
+      conceptUnits(c).forEach(function(u){out.push({id:u.id,kind:"concept",topic:t});});
+    });
+    t.problems.forEach(function(g){
+      g.items.forEach(function(it){out.push({id:it.id,kind:"problem",topic:t,item:it});});
+    });
+  });
+  return out;
+}
+function dayOffset(key,n){
+  var p=key.split("-");
+  var d=new Date(+p[0],+p[1]-1,+p[2]);
+  d.setDate(d.getDate()+n);
+  return todayKey(d);
+}
+function analytics(){
+  var units=allUnits();
+  var byDay={}, undated=0, doneTotal=0;
+  var kind={concept:{done:0,total:0},problem:{done:0,total:0}};
+  var tier={basic:{done:0,total:0},core:{done:0,total:0},pro:{done:0,total:0}};
+  var perTopic={};
+  var fav=0,repeat=0,notes=0,tagged=0,linked=0;
+
+  units.forEach(function(u){
+    var s=st(u.id);
+    kind[u.kind].total++;
+    var tk=u.topic.id;
+    perTopic[tk]=perTopic[tk]||{title:u.topic.title,done:0,total:0,c:0,p:0,cd:0,pd:0};
+    perTopic[tk].total++;
+    if(u.kind==="concept")perTopic[tk].c++; else perTopic[tk].p++;
+    if(u.item&&u.item.tier&&tier[u.item.tier])tier[u.item.tier].total++;
+    if(s.fav)fav++;
+    if(s.repeat)repeat++;
+    if(s.note&&s.note.trim())notes++;
+    if(s.tags&&s.tags.length)tagged++;
+    if(u.item&&s.link)linked++;
+    if(s.done){
+      doneTotal++;
+      kind[u.kind].done++;
+      perTopic[tk].done++;
+      if(u.kind==="concept")perTopic[tk].cd++; else perTopic[tk].pd++;
+      if(u.item&&u.item.tier&&tier[u.item.tier])tier[u.item.tier].done++;
+      if(s.doneAt){
+        var b=byDay[s.doneAt]||(byDay[s.doneAt]={total:0,concept:0,problem:0});
+        b.total++; b[u.kind]++;
+      }else undated++;
+    }
+  });
+
+  var today=todayKey();
+  var days=[], cursor=dayOffset(today,-363);
+  for(var i=0;i<364;i++){
+    var k=dayOffset(cursor,i);
+    var b=byDay[k];
+    days.push({day:k,total:b?b.total:0,concept:b?b.concept:0,problem:b?b.problem:0});
+  }
+
+  // streaks over the days that actually have activity
+  var cur=0,best=0,run=0;
+  days.forEach(function(d){ if(d.total){run++;best=Math.max(best,run);}else run=0; });
+  for(var j=days.length-1;j>=0;j--){
+    if(days[j].total)cur++;
+    else if(j===days.length-1)continue;   // today may simply not have started yet
+    else break;
+  }
+
+  var last7=days.slice(-7).reduce(function(a,d){return a+d.total;},0);
+  var last30=days.slice(-30).reduce(function(a,d){return a+d.total;},0);
+  var activeDays=days.filter(function(d){return d.total;}).length;
+  var remaining=units.length-doneTotal;
+  var perDay30=last30/30;
+  var eta=perDay30>0?Math.ceil(remaining/perDay30):null;
+
+  var topics=Object.keys(perTopic).map(function(k){
+    var r=perTopic[k];r.id=k;r.pct=r.total?r.done/r.total*100:0;return r;
+  });
+
+  return {units:units.length,done:doneTotal,remaining:remaining,undated:undated,
+          byDay:byDay,days:days,today:byDay[today]||{total:0,concept:0,problem:0},
+          streak:cur,best:best,last7:last7,last30:last30,activeDays:activeDays,
+          perDay30:perDay30,eta:eta,kind:kind,tier:tier,topics:topics,
+          fav:fav,repeat:repeat,notes:notes,tagged:tagged,linked:linked};
 }
 
 /* ---------- counting ---------- */
@@ -2143,10 +2319,232 @@ function clearAllFilters(){
   render();
 }
 
+/* ---------- charts ----------
+   Inline SVG, no library. Categorical hues come from --ch1..--ch3, which are a
+   validated 3-colour set (CVD-separated, chroma floor, contrast) with its own
+   dark-mode steps - not an automatic flip of the light ones. */
+function svgEsc(v){return String(v).replace(/[<>&"]/g,function(c){
+  return {"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c];});}
+
+/* Calendar heatmap: magnitude on a grid -> sequential, one hue, more is darker. */
+function heatmap(days){
+  var cell=11,gap=3,weeks=Math.ceil(days.length/7);
+  var w=weeks*(cell+gap), h=7*(cell+gap), top=16, left=26;
+  var max=0;days.forEach(function(d){if(d.total>max)max=d.total;});
+  var out='<svg viewBox="0 0 '+(w+left+6)+' '+(h+top+16)+'" width="100%" '+
+          'style="max-width:100%;height:auto" role="img" aria-label="Daily activity for the last year">';
+  ["Mon","Wed","Fri"].forEach(function(lab,i){
+    out+='<text x="0" y="'+(top+(i*2+1)*(cell+gap)+cell-1)+'" font-size="8" '+
+         'fill="var(--ink-3)" font-family="var(--mono)">'+lab+'</text>';
+  });
+  var lastMonth="";
+  days.forEach(function(d,i){
+    var wk=Math.floor(i/7), dow=i%7;
+    var x=left+wk*(cell+gap), y=top+dow*(cell+gap);
+    var lvl=d.total===0?0:Math.min(4,Math.ceil(d.total/Math.max(1,max)*4));
+    var fill=lvl===0?"var(--chart-empty)":"var(--heat"+lvl+")";
+    out+='<rect class="cell" x="'+x+'" y="'+y+'" width="'+cell+'" height="'+cell+
+         '" rx="2.5" fill="'+fill+'" data-day="'+d.day+'" data-n="'+d.total+
+         '"><title>'+svgEsc(d.day)+': '+d.total+(d.total===1?" item":" items")+'</title></rect>';
+    if(dow===0){
+      var mon=d.day.slice(5,7);
+      if(mon!==lastMonth){
+        lastMonth=mon;
+        var names=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        out+='<text x="'+x+'" y="'+(top-5)+'" font-size="8" fill="var(--ink-3)" '+
+             'font-family="var(--mono)">'+names[+mon-1]+'</text>';
+      }
+    }
+  });
+  return out+'</svg>';
+}
+
+/* Cumulative completion over time: trend -> line, single series, no legend. */
+function cumulativeChart(days){
+  var pts=[],run=0,firstIdx=-1;
+  days.forEach(function(d,i){
+    run+=d.total;
+    if(run>0&&firstIdx<0)firstIdx=i;
+    pts.push(run);
+  });
+  if(firstIdx<0)return '<div class="chart-empty">No dated activity yet.</div>';
+  pts=pts.slice(firstIdx); var labels=days.slice(firstIdx);
+  var w=640,h=150,padL=34,padB=18,padT=8;
+  var max=pts[pts.length-1]||1;
+  var X=function(i){return padL+(pts.length<2?0:i/(pts.length-1)*(w-padL-8));};
+  var Y=function(v){return padT+(1-v/max)*(h-padT-padB);};
+  var dAttr=pts.map(function(v,i){return (i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1);}).join(" ");
+  var area=dAttr+" L"+X(pts.length-1).toFixed(1)+" "+(h-padB)+" L"+X(0).toFixed(1)+" "+(h-padB)+" Z";
+  var out='<svg viewBox="0 0 '+w+' '+h+'" width="100%" style="height:auto" role="img" '+
+          'aria-label="Cumulative items completed over time">';
+  [0,0.5,1].forEach(function(f){
+    var v=Math.round(max*f), y=Y(v);
+    out+='<line x1="'+padL+'" y1="'+y+'" x2="'+(w-8)+'" y2="'+y+
+         '" stroke="var(--grid)" stroke-width="1"/>'+
+         '<text x="'+(padL-6)+'" y="'+(y+3)+'" font-size="9" text-anchor="end" '+
+         'fill="var(--ink-3)" font-family="var(--mono)">'+v+'</text>';
+  });
+  out+='<path d="'+area+'" fill="var(--ch1-fill)"/>';
+  out+='<path d="'+dAttr+'" fill="none" stroke="var(--ch1)" stroke-width="2" '+
+       'stroke-linejoin="round" stroke-linecap="round"/>';
+  out+='<circle cx="'+X(pts.length-1)+'" cy="'+Y(max)+'" r="4" fill="var(--ch1)" '+
+       'stroke="var(--surface)" stroke-width="2"/>';
+  out+='<text x="'+(X(pts.length-1)-4)+'" y="'+(Y(max)-8)+'" font-size="10" text-anchor="end" '+
+       'fill="var(--ink-2)" font-family="var(--mono)" font-weight="600">'+max+'</text>';
+  out+='<text x="'+padL+'" y="'+(h-4)+'" font-size="9" fill="var(--ink-3)" '+
+       'font-family="var(--mono)">'+svgEsc(labels[0].day)+'</text>';
+  out+='<text x="'+(w-8)+'" y="'+(h-4)+'" font-size="9" text-anchor="end" '+
+       'fill="var(--ink-3)" font-family="var(--mono)">'+svgEsc(labels[labels.length-1].day)+'</text>';
+  return out+'</svg>';
+}
+
+/* Last 30 days: magnitude per day -> columns, one hue. */
+function dailyBars(days){
+  var d30=days.slice(-30), w=640,h=110,padB=16,padT=6,padL=28;
+  var max=Math.max(1,Math.max.apply(null,d30.map(function(d){return d.total;})));
+  var bw=(w-padL-8)/30;
+  var out='<svg viewBox="0 0 '+w+' '+h+'" width="100%" style="height:auto" role="img" '+
+          'aria-label="Items completed each day for the last 30 days">';
+  [0,max].forEach(function(v){
+    var y=padT+(1-v/max)*(h-padT-padB);
+    out+='<line x1="'+padL+'" y1="'+y+'" x2="'+(w-8)+'" y2="'+y+'" stroke="var(--grid)" stroke-width="1"/>'+
+         '<text x="'+(padL-6)+'" y="'+(y+3)+'" font-size="9" text-anchor="end" fill="var(--ink-3)" '+
+         'font-family="var(--mono)">'+v+'</text>';
+  });
+  d30.forEach(function(d,i){
+    var bh=d.total/max*(h-padT-padB);
+    var x=padL+i*bw, y=h-padB-bh;
+    out+='<rect x="'+(x+1).toFixed(1)+'" y="'+(d.total?y.toFixed(1):(h-padB-2))+
+         '" width="'+(bw-2).toFixed(1)+'" height="'+(d.total?Math.max(2,bh).toFixed(1):2)+
+         '" rx="2" fill="'+(d.total?"var(--ch1)":"var(--chart-empty)")+'">'+
+         '<title>'+svgEsc(d.day)+': '+d.total+'</title></rect>';
+  });
+  out+='<text x="'+padL+'" y="'+(h-3)+'" font-size="9" fill="var(--ink-3)" font-family="var(--mono)">'+
+       svgEsc(d30[0].day.slice(5))+'</text>'+
+       '<text x="'+(w-8)+'" y="'+(h-3)+'" font-size="9" text-anchor="end" fill="var(--ink-3)" '+
+       'font-family="var(--mono)">today</text>';
+  return out+'</svg>';
+}
+
+/* Part-to-whole with long category names -> horizontal stacked bar. */
+function stackRow(label,segs,total){
+  if(!total)return "";
+  var out='<div class="stack-row"><div class="stack-label">'+esc(label)+'</div><div class="stack">';
+  segs.forEach(function(sg){
+    if(!sg.v)return;
+    out+='<span class="seg" style="width:'+(sg.v/total*100)+'%;background:'+sg.color+
+         '" title="'+esc(sg.name)+': '+sg.v+'"></span>';
+  });
+  out+='</div><div class="stack-n tnum">'+segs[0].v+'/'+total+'</div></div>';
+  return out;
+}
+function legendRow(items){
+  return '<div class="chart-legend">'+items.map(function(i){
+    return '<span><span class="key" style="background:'+i.color+'"></span>'+esc(i.name)+
+           (i.n!=null?' <b class="tnum">'+i.n+'</b>':'')+'</span>';
+  }).join("")+'</div>';
+}
+
+/* ---------- the analytics view ---------- */
+function renderStats(){
+  var A=analytics();
+  var pctDone=A.units?Math.round(A.done/A.units*100):0;
+
+  var h='<h1 class="page-title">Analytics</h1>'+
+    '<p class="page-sub">Everything below is derived from your own ticks and syncs with your progress.</p>';
+
+  // KPI row - headline numbers belong in stat tiles, not a chart
+  h+='<div class="kpi">'+
+    '<div class="tile hero"><span class="tile-v tnum">'+A.today.total+'</span>'+
+      '<span class="tile-l">Solved today</span>'+
+      '<span class="tile-s">'+A.today.problem+' problems · '+A.today.concept+' concepts</span></div>'+
+    '<div class="tile"><span class="tile-v tnum">'+A.streak+'</span><span class="tile-l">Day streak</span>'+
+      '<span class="tile-s">best '+A.best+'</span></div>'+
+    '<div class="tile"><span class="tile-v tnum">'+A.last7+'</span><span class="tile-l">This week</span>'+
+      '<span class="tile-s">'+A.last30+' in 30 days</span></div>'+
+    '<div class="tile"><span class="tile-v tnum">'+A.done+'</span><span class="tile-l">Total done</span>'+
+      '<span class="tile-s">'+pctDone+'% of '+A.units+'</span></div>'+
+    '<div class="tile"><span class="tile-v tnum">'+A.perDay30.toFixed(1)+'</span>'+
+      '<span class="tile-l">Per day</span><span class="tile-s">30-day average</span></div>'+
+    '<div class="tile"><span class="tile-v tnum">'+(A.eta==null?"—":A.eta)+'</span>'+
+      '<span class="tile-l">Days to finish</span>'+
+      '<span class="tile-s">'+(A.eta==null?"needs recent activity":"at the current pace")+'</span></div>'+
+    '</div>';
+
+  if(A.undated)
+    h+='<div class="note-banner">'+A.undated+' item'+(A.undated===1?" was":"s were")+
+       ' ticked before dates were recorded, so they count in totals but not in the '+
+       'charts below.</div>';
+
+  h+='<section class="panel"><h3>Activity</h3>'+
+     '<p class="panel-sub">Each square is a day over the last year. Darker means more items.</p>'+
+     heatmap(A.days)+
+     '<div class="chart-legend"><span>Less</span>'+
+     '<span class="key" style="background:var(--chart-empty)"></span>'+
+     '<span class="key" style="background:var(--heat1)"></span>'+
+     '<span class="key" style="background:var(--heat2)"></span>'+
+     '<span class="key" style="background:var(--heat3)"></span>'+
+     '<span class="key" style="background:var(--heat4)"></span><span>More</span>'+
+     '<span style="margin-left:auto">'+A.activeDays+' active days</span></div></section>';
+
+  h+='<div class="panel-grid">'+
+     '<section class="panel"><h3>Last 30 days</h3>'+
+     '<p class="panel-sub">Items completed per day.</p>'+dailyBars(A.days)+'</section>'+
+     '<section class="panel"><h3>Cumulative progress</h3>'+
+     '<p class="panel-sub">Total completed, over time.</p>'+cumulativeChart(A.days)+'</section>'+
+     '</div>';
+
+  // part-to-whole splits
+  h+='<section class="panel"><h3>What you have covered</h3>';
+  h+=legendRow([{name:"Done",color:"var(--ch1)"},{name:"Remaining",color:"var(--chart-empty)"}]);
+  h+=stackRow("Concepts",[{name:"Done",v:A.kind.concept.done,color:"var(--ch1)"},
+      {name:"Remaining",v:A.kind.concept.total-A.kind.concept.done,color:"var(--chart-empty)"}],
+      A.kind.concept.total);
+  h+=stackRow("Problems",[{name:"Done",v:A.kind.problem.done,color:"var(--ch2)"},
+      {name:"Remaining",v:A.kind.problem.total-A.kind.problem.done,color:"var(--chart-empty)"}],
+      A.kind.problem.total);
+  ["basic","core","pro"].forEach(function(k){
+    h+=stackRow(TIER[k]+" tier",[{name:"Done",v:A.tier[k].done,color:"var(--ch3)"},
+        {name:"Remaining",v:A.tier[k].total-A.tier[k].done,color:"var(--chart-empty)"}],
+        A.tier[k].total);
+  });
+  h+='</section>';
+
+  // modules, sorted - magnitude comparison, one hue
+  var tops=A.topics.slice().sort(function(a,b){return b.pct-a.pct;});
+  h+='<section class="panel"><h3>Modules</h3>'+
+     '<p class="panel-sub">Share of each module you have completed. Click one to open it.</p>'+
+     '<div class="mod-bars">';
+  tops.forEach(function(r){
+    h+='<button class="mod-row" data-nav="topic" data-id="'+esc(r.id)+'">'+
+       '<span class="mod-name">'+esc(r.title)+'</span>'+
+       '<span class="mod-track"><i style="width:'+r.pct.toFixed(1)+'%"></i></span>'+
+       '<span class="mod-n tnum">'+r.done+'/'+r.total+'</span></button>';
+  });
+  h+='</div></section>';
+
+  // study habits
+  h+='<section class="panel"><h3>Your study habits</h3><div class="kpi small">'+
+     '<div class="tile"><span class="tile-v tnum">'+A.repeat+'</span>'+
+       '<span class="tile-l">Marked to repeat</span><span class="tile-s">your revision queue</span></div>'+
+     '<div class="tile"><span class="tile-v tnum">'+A.fav+'</span>'+
+       '<span class="tile-l">Favourites</span></div>'+
+     '<div class="tile"><span class="tile-v tnum">'+A.notes+'</span>'+
+       '<span class="tile-l">With notes</span></div>'+
+     '<div class="tile"><span class="tile-v tnum">'+A.tagged+'</span>'+
+       '<span class="tile-l">Tagged</span></div>'+
+     '<div class="tile"><span class="tile-v tnum">'+A.linked+'</span>'+
+       '<span class="tile-l">Links you saved</span></div>'+
+     '</div></section>';
+
+  view.innerHTML=h;
+}
+
 function render(){
   renderRail();
   renderAccount();
   syncClearBtn();
+  if(route.view==="stats"){renderStats();return;}
   // Dashboard-level filtering searches every module; inside a module it stays there.
   if(route.view!=="topic"&&filtersActive()){route.view="search";renderSearch();return;}
   if(route.view==="search")route.view="dash";
@@ -2154,8 +2552,20 @@ function render(){
 }
 
 /* ---------- mutations ---------- */
+function todayKey(d){
+  d=d||new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+
+         String(d.getDate()).padStart(2,"0");
+}
 function toggle(id){
-  setItem(id,{done:!st(id).done});
+  var cur=st(id);
+  if(cur.done){
+    // untick drops the day it counted for, but remembers when it was first solved
+    setItem(id,{done:false,doneAt:""});
+  }else{
+    var day=todayKey();
+    setItem(id,{done:true,doneAt:day,firstDoneAt:cur.firstDoneAt||day});
+  }
   pushItem(id);
 }
 function pushItem(id){
@@ -2381,6 +2791,18 @@ document.addEventListener("click",function(e){
   if(e.target.id==="mergeNo"){pendingMerge=null;render();toast("Keeping your account's progress.");return;}
   if(e.target.id==="menuBtn"){$("#rail").classList.add("open");$("#scrim").classList.add("show");return;}
   if(e.target.id==="scrim"){closeRail();return;}
+  if(e.target.closest("#statsBtn")){
+    route={view:"stats",topic:null,tab:route.tab};
+    query=""; activeTags=[]; filter="all";
+    var sb=$("#search"); if(sb)sb.value="";
+    Object.keys(FILTER_BTNS).forEach(function(b){
+      var el2=document.getElementById(b);
+      if(el2)el2.setAttribute("aria-pressed",b==="fAll"?"true":"false");
+    });
+    try{location.hash="analytics";}catch(err){}
+    closeRail(); render(); $("#main").scrollTop=0;
+    return;
+  }
   if(e.target.id==="clearFilters"){clearAllFilters();return;}
   if(e.target.id==="paletteBtn"){
     var m=$("#paletteMenu");
@@ -2482,7 +2904,8 @@ fetch("data/curriculum.json").then(function(r){
 }).then(function(d){
   BASE=d; META=d.meta||{}; rebuildData();
   var hash=(location.hash||"").replace(/^#/,"");
-  if(hash&&hash!=="dashboard"){
+  if(hash==="analytics")route={view:"stats",topic:null,tab:"concepts"};
+  else if(hash&&hash!=="dashboard"){
     for(var i=0;i<DATA.topics.length;i++)
       if(DATA.topics[i].id===hash)route={view:"topic",topic:hash,tab:"concepts"};
   }

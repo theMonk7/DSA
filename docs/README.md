@@ -119,6 +119,30 @@ Connecting for the first time with work already in the browser:
 
 **Disconnect** drops back to the local copy and never deletes the gist.
 
+## Analytics
+
+The chart icon in the top bar opens an analytics view (also at `#analytics`).
+
+It shows solved-today, day streak, week and 30-day totals, a 30-day average pace
+and a projected days-to-finish; a year-long activity heatmap; a 30-day column
+chart; cumulative completion over time; concept/problem and Basic/Core/Pro
+splits; per-module completion; and counts for your revision queue, favourites,
+notes, tags and saved links.
+
+All of it is derived from your own ticks and lives in the same record, so it
+syncs to your gist with everything else. Nothing is sent anywhere.
+
+**Dates start from now.** Ticking an item records the calendar day, which is what
+the time charts are built from. Items you ticked before this existed have no date
+— they still count in totals, and the view says how many are in that bucket
+rather than inventing days for them. Unticking an item removes it from its day
+but keeps a `firstDoneAt` record.
+
+Chart colours are a separate validated set, not the UI accent: the accent fails
+the chroma floor at mark size. The three chart hues pass lightness-band, chroma,
+colour-blind separation and contrast checks against every theme surface in both
+light and dark.
+
 ## Adding your own modules and problems
 
 Buttons on the dashboard: **+ New module**, **+ Add problem**. Inside a topic the
