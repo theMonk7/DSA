@@ -55,6 +55,7 @@ jobs:
           node tools/test_ui.js
           node tools/test_structure.js
           node tools/test_stats.js
+          node tools/test_hover.js
 
       - name: Commit if the data changed
         run: |

@@ -138,6 +138,13 @@ the time charts are built from. Items you ticked before this existed have no dat
 rather than inventing days for them. Unticking an item removes it from its day
 but keeps a `firstDoneAt` record.
 
+Every chart responds to hover: heat cells, day columns, stacked segments and
+module bars each show their own value, and the cumulative line has a crosshair
+that snaps to the nearest day — you aim at a date, not at a 2px line. Day columns
+use a full-height hit area so a one-item day is still easy to hit. The same
+readout appears on keyboard focus, and the tooltip is built with `textContent`,
+never by concatenating markup.
+
 Chart colours are a separate validated set, not the UI accent: the accent fails
 the chroma floor at mark size. The three chart hues pass lightness-band, chroma,
 colour-blind separation and contrast checks against every theme surface in both

@@ -67,11 +67,16 @@ t("undated still in total", A.done===13, "done "+A.done);
 // charts render without throwing and produce svg
 const hm=heatmap(A.days);
 t("heatmap renders 364 cells", (hm.match(/<rect/g)||[]).length===364, (hm.match(/<rect/g)||[]).length);
-t("heatmap cells have titles", hm.includes("<title>"));
+t("heatmap cells carry hover data", (hm.match(/data-tip="/g)||[]).length===364,
+  (hm.match(/data-tip="/g)||[]).length+" cells");
 const cum=cumulativeChart(A.days);
 t("cumulative line renders", cum.includes("<path") && cum.includes("</svg>"));
 const bars=dailyBars(A.days);
-t("30-day bars render", (bars.match(/<rect/g)||[]).length===30);
+t("30-day bars render (mark + hit area per day)",
+  (bars.match(/class="bar-mark"/g)||[]).length===30 &&
+  (bars.match(/class="hit col-hit"/g)||[]).length===30,
+  (bars.match(/class="bar-mark"/g)||[]).length+" marks / "+
+  (bars.match(/class="hit col-hit"/g)||[]).length+" hits");
 t("stack row renders", stackRow("x",[{name:"a",v:3,color:"var(--ch1)"},{name:"b",v:7,color:"var(--chart-empty)"}],10).includes("30%"));
 
 // no NaN or undefined leaking into markup
