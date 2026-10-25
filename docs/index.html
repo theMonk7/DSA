@@ -350,6 +350,21 @@ svg .hit:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .seg{display:block;height:100%}
 .stack-n{width:64px;flex:none;text-align:right;font-family:var(--mono);font-size:11.5px;
   color:var(--ink-3)}
+.scope-row{display:flex;align-items:center;gap:10px;margin:0 0 18px}
+.scope-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.est-table{display:flex;flex-direction:column;gap:2px;overflow-x:auto}
+.est-row{display:grid;grid-template-columns:1.2fr .7fr .7fr .7fr 1fr .7fr 1.3fr;gap:10px;
+  align-items:center;padding:7px 8px;border-radius:7px;min-width:540px;font-size:13px}
+.est-head{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.est-row.on{background:var(--accent-soft)}
+.est-row .tnum{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.est-name{background:none;border:0;padding:0;text-align:left;font:inherit;font-weight:600;cursor:pointer}
+.est-name:hover{color:var(--accent)}
+.est-days{font-weight:600;color:var(--ink)}
+.est-date{color:var(--ink-2);font-size:12.5px}
+.plan-in{width:78px;background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:4px 7px;font:inherit;font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.plan-in:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
 .mod-bars{display:flex;flex-direction:column;gap:5px}
 .mod-row{display:flex;align-items:center;gap:11px;width:100%;background:none;border:0;
   padding:4px 6px;border-radius:7px;text-align:left}
@@ -1432,8 +1447,11 @@ function dayOffset(key,n){
   d.setDate(d.getDate()+n);
   return todayKey(d);
 }
-function analytics(){
+/* scope: "all" | "concept" | "problem" - every number below honours it */
+function analytics(scope){
   var units=allUnits();
+  if(scope==="concept"||scope==="problem")
+    units=units.filter(function(u){return u.kind===scope;});
   var byDay={}, undated=0, doneTotal=0;
   var kind={concept:{done:0,total:0},problem:{done:0,total:0}};
   var tier={basic:{done:0,total:0},core:{done:0,total:0},pro:{done:0,total:0}};
@@ -1487,7 +1505,7 @@ function analytics(){
   var last30=days.slice(-30).reduce(function(a,d){return a+d.total;},0);
   var activeDays=days.filter(function(d){return d.total;}).length;
   var remaining=units.length-doneTotal;
-  var perDay30=last30/30;
+  var perDay30=last30/30, perDay7=last7/7;
   var eta=perDay30>0?Math.ceil(remaining/perDay30):null;
 
   var topics=Object.keys(perTopic).map(function(k){
@@ -1497,7 +1515,7 @@ function analytics(){
   return {units:units.length,done:doneTotal,remaining:remaining,undated:undated,
           byDay:byDay,days:days,today:byDay[today]||{total:0,concept:0,problem:0},
           streak:cur,best:best,last7:last7,last30:last30,activeDays:activeDays,
-          perDay30:perDay30,eta:eta,kind:kind,tier:tier,topics:topics,
+          perDay30:perDay30,perDay7:perDay7,eta:eta,kind:kind,tier:tier,topics:topics,
           fav:fav,repeat:repeat,notes:notes,tagged:tagged,linked:linked};
 }
 
@@ -2564,18 +2582,79 @@ document.addEventListener("focusout",function(e){
 });
 
 /* ---------- the analytics view ---------- */
+var SCOPES=[{id:"all",label:"All"},{id:"concept",label:"Concepts"},{id:"problem",label:"Problems"}];
+var statsScope="all", planRate={};          // planRate[scope] = items/day you intend
+try{
+  statsScope=localStorage.getItem("pl-stats-scope")||"all";
+  planRate=JSON.parse(localStorage.getItem("pl-plan-rate")||"{}")||{};
+}catch(e){ /* storage blocked: defaults */ }
+function savePlan(){
+  try{
+    localStorage.setItem("pl-stats-scope",statsScope);
+    localStorage.setItem("pl-plan-rate",JSON.stringify(planRate));
+  }catch(e){ /* storage blocked: session only */ }
+}
+function finishDate(days){
+  if(days==null)return "\u2014";
+  var d=new Date(); d.setDate(d.getDate()+days);
+  return d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
+}
+/* Estimate for one scope: your plan wins if set, else the 30-day pace, else 7-day. */
+function estimateFor(scope){
+  var A=analytics(scope);
+  var plan=+planRate[scope]||0;
+  var pace=plan>0?plan:(A.perDay30>0?A.perDay30:A.perDay7);
+  var basis=plan>0?"your plan":(A.perDay30>0?"30-day pace":(A.perDay7>0?"7-day pace":""));
+  var days=pace>0?Math.ceil(A.remaining/pace):null;
+  if(A.remaining===0)days=0;
+  return {scope:scope,A:A,pace:pace,basis:basis,days:days,plan:plan};
+}
+function estimatePanel(){
+  var h='<section class="panel"><h3>Time to finish</h3>'+
+    '<p class="panel-sub">Set a daily target to plan, or leave it blank to project from your recent pace.</p>'+
+    '<div class="est-table" role="table">'+
+    '<div class="est-row est-head" role="row"><span>Scope</span><span>Left</span>'+
+    '<span>7-day</span><span>30-day</span><span>Plan / day</span><span>Days</span><span>Finish</span></div>';
+  SCOPES.forEach(function(sc){
+    var E=estimateFor(sc.id), A=E.A;
+    h+='<div class="est-row'+(sc.id===statsScope?" on":"")+'" role="row">'+
+      '<button class="est-name" data-scope="'+sc.id+'">'+sc.label+'</button>'+
+      '<span class="tnum">'+A.remaining+'</span>'+
+      '<span class="tnum">'+A.perDay7.toFixed(1)+'</span>'+
+      '<span class="tnum">'+A.perDay30.toFixed(1)+'</span>'+
+      '<span><input class="plan-in" type="number" min="0" step="0.5" inputmode="decimal" '+
+        'id="plan-'+sc.id+'" data-plan="'+sc.id+'" value="'+(E.plan||"")+'" placeholder="auto" '+
+        'aria-label="Planned '+sc.label.toLowerCase()+' per day"></span>'+
+      '<span class="tnum est-days">'+(E.days==null?"\u2014":E.days)+'</span>'+
+      '<span class="est-date" title="'+esc(E.basis?("based on "+E.basis):"no recent activity yet")+'">'+
+        (A.remaining===0?"done":finishDate(E.days))+'</span>'+
+      '</div>';
+  });
+  return h+'</div></section>';
+}
+
 function renderStats(){
-  var A=analytics();
+  var A=analytics(statsScope);
+  var E=estimateFor(statsScope);
   var pctDone=A.units?Math.round(A.done/A.units*100):0;
+  var noun=statsScope==="concept"?"concepts":statsScope==="problem"?"problems":"items";
 
   var h='<h1 class="page-title">Analytics</h1>'+
     '<p class="page-sub">Everything below is derived from your own ticks and syncs with your progress.</p>';
 
+  // one filter row, above everything it scopes
+  h+='<div class="scope-row"><span class="scope-label">Show</span><div class="seg" role="radiogroup" aria-label="Scope">';
+  SCOPES.forEach(function(sc){
+    h+='<button role="radio" data-scope="'+sc.id+'" aria-checked="'+(sc.id===statsScope)+
+       '" aria-pressed="'+(sc.id===statsScope)+'">'+sc.label+'</button>';
+  });
+  h+='</div></div>';
+
   // KPI row - headline numbers belong in stat tiles, not a chart
   h+='<div class="kpi">'+
     '<div class="tile hero"><span class="tile-v tnum">'+A.today.total+'</span>'+
-      '<span class="tile-l">Solved today</span>'+
-      '<span class="tile-s">'+A.today.problem+' problems · '+A.today.concept+' concepts</span></div>'+
+      '<span class="tile-l">'+(statsScope==="concept"?"Read today":"Solved today")+'</span>'+
+      '<span class="tile-s">'+(statsScope==="all"?(A.today.problem+' problems · '+A.today.concept+' concepts'):noun)+'</span></div>'+
     '<div class="tile"><span class="tile-v tnum">'+A.streak+'</span><span class="tile-l">Day streak</span>'+
       '<span class="tile-s">best '+A.best+'</span></div>'+
     '<div class="tile"><span class="tile-v tnum">'+A.last7+'</span><span class="tile-l">This week</span>'+
@@ -2584,10 +2663,11 @@ function renderStats(){
       '<span class="tile-s">'+pctDone+'% of '+A.units+'</span></div>'+
     '<div class="tile"><span class="tile-v tnum">'+A.perDay30.toFixed(1)+'</span>'+
       '<span class="tile-l">Per day</span><span class="tile-s">30-day average</span></div>'+
-    '<div class="tile"><span class="tile-v tnum">'+(A.eta==null?"—":A.eta)+'</span>'+
+    '<div class="tile"><span class="tile-v tnum">'+(E.days==null?"—":E.days)+'</span>'+
       '<span class="tile-l">Days to finish</span>'+
-      '<span class="tile-s">'+(A.eta==null?"needs recent activity":"at the current pace")+'</span></div>'+
+      '<span class="tile-s">'+(A.remaining===0?"all done":(E.days==null?"needs recent activity":finishDate(E.days)+" · "+E.basis))+'</span></div>'+
     '</div>';
+  h+=estimatePanel();
 
   if(A.undated)
     h+='<div class="note-banner">'+A.undated+' item'+(A.undated===1?" was":"s were")+
@@ -2629,7 +2709,8 @@ function renderStats(){
   h+='</section>';
 
   // modules, sorted - magnitude comparison, one hue
-  var tops=A.topics.slice().sort(function(a,b){return b.pct-a.pct;});
+  var tops=A.topics.filter(function(r){return r.total>0;})
+                   .sort(function(a,b){return b.pct-a.pct;});
   h+='<section class="panel"><h3>Modules</h3>'+
      '<p class="panel-sub">Share of each module you have completed. Click one to open it.</p>'+
      '<div class="mod-bars">';
@@ -2911,6 +2992,10 @@ document.addEventListener("click",function(e){
   if(e.target.id==="mergeNo"){pendingMerge=null;render();toast("Keeping your account's progress.");return;}
   if(e.target.id==="menuBtn"){$("#rail").classList.add("open");$("#scrim").classList.add("show");return;}
   if(e.target.id==="scrim"){closeRail();return;}
+  if((el=e.target.closest("[data-scope]"))&&route.view==="stats"){
+    statsScope=el.getAttribute("data-scope"); savePlan(); render();
+    return;
+  }
   if(e.target.closest("#statsBtn")){
     route={view:"stats",topic:null,tab:route.tab};
     query=""; activeTags=[]; filter="all";
@@ -2991,6 +3076,17 @@ document.addEventListener("input",function(e){
       query=v;            // render() routes to the global results view when this is set
       render();
     },160);
+    return;
+  }
+  var pl=e.target.getAttribute&&e.target.getAttribute("data-plan");
+  if(pl){
+    var v=parseFloat(e.target.value);
+    if(v>0)planRate[pl]=v; else delete planRate[pl];
+    savePlan();
+    var fid=e.target.id, pos=e.target.selectionStart;
+    renderStats();
+    var back=document.getElementById(fid);
+    if(back){back.focus(); try{back.setSelectionRange(pos,pos);}catch(err){ /* number inputs refuse it */ }}
     return;
   }
   var nid=e.target.getAttribute&&e.target.getAttribute("data-note");

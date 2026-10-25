@@ -262,6 +262,25 @@ for t in out:
             while it["id"] in seen: n+=1; it["id"]=f"{b}-{n}"
             seen.add(it["id"])
 
+# Heading-tree nodes claim their ids LAST. A "### 3Sum (LC 15)" heading is both a
+# write-up you read and a problem you solve; they must not share an id, or ticking
+# one ticks the other and both count toward totals. Problem ids keep theirs (notes,
+# links and ticks hang off them); the reading entry gets a "--read" suffix.
+renamed = 0
+def _claim(nodes):
+    global renamed
+    for nd in nodes:
+        if nd["id"] in seen:
+            b = nd["id"] + "--read"; nd["id"] = b; n = 1
+            while nd["id"] in seen: n += 1; nd["id"] = f"{b}-{n}"
+            renamed += 1
+        seen.add(nd["id"])
+        _claim(nd["children"])
+for t in out:
+    for c in t["concepts"]:
+        _claim(c.get("parts") or [])
+print("concept nodes renamed to avoid problem-id collisions:", renamed)
+
 nc = sum(len(t["concepts"]) for t in out)
 def _count_nodes(ns):
     return sum(1 + _count_nodes(n["children"]) for n in ns)

@@ -58,5 +58,15 @@ t("5-level renders", dh.includes('data-depth="3"') && dh.includes('data-tick="n4
 let bad=[]; d.topics.forEach(tp=>{const c=conceptCount(tp); if(c.done>c.total)bad.push(tp.id);});
 t("no topic over-counts", bad.length===0, bad.join(","));
 
+// every id - section, tree node, problem - must be unique, or one tick lands on two entries
+{
+  const seen=new Map(); let dups=[];
+  const walk=(ns)=>ns.forEach(n=>{ if(seen.has(n.id))dups.push(n.id); seen.set(n.id,1); walk(n.children||[]); });
+  d.topics.forEach(tp=>{
+    tp.concepts.forEach(c=>{ if(seen.has(c.id))dups.push(c.id); seen.set(c.id,1); walk(c.parts||[]); });
+    tp.problems.forEach(g=>g.items.forEach(it=>{ if(seen.has(it.id))dups.push(it.id); seen.set(it.id,1); }));
+  });
+  t("all ids unique across concepts and problems", dups.length===0, dups.length+" dupes e.g. "+dups[0]);
+}
 console.log("\n"+p+" passed, "+f+" failed");
 process.exit(f?1:0);

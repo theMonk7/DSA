@@ -25,7 +25,7 @@
 | 12 | Heaps & Priority Queues | [heaps.md](heaps.md) | 1299 | Always take the current best |
 | 13 | Recursion & Backtracking | [recursion.md](recursion.md) | 1410 | Inductive contract; choose / explore / un-choose |
 | 14 | Greedy | [greedy.md](greedy.md) | 1551 | Local choice + an exchange-argument proof |
-| 15 | Dynamic Programming | [dp.md](dp.md) | 2274 | State → transition → base → order → answer |
+| 15 | Dynamic Programming | [dp.md](dp.md) | 2776 | State → transition → base → order → answer |
 | 16 | Graphs | [graphs.md](graphs.md) | 2861 | Everything is a graph; pick the right traversal |
 | 17 | Intervals | [intervals.md](intervals.md) | 211 | Sort first, then sweep |
 

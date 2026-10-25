@@ -138,6 +138,18 @@ the time charts are built from. Items you ticked before this existed have no dat
 rather than inventing days for them. Unticking an item removes it from its day
 but keeps a `firstDoneAt` record.
 
+A **Show: All · Concepts · Problems** switch at the top scopes the whole page —
+tiles, heatmap, charts, coverage and module list. It is a three-way switch rather
+than two checkboxes because "neither" is not a meaningful view and "both" is
+just All.
+
+**Time to finish** lists all three scopes side by side: items left, 7-day and
+30-day pace, days remaining and a finish date. Type a number in *Plan / day* to
+ask "if I do 4 problems a day, when am I done?" — your plan overrides the measured
+pace for that scope; clear it to go back to projecting from history. With no
+recent activity it shows a dash rather than inventing a date. Scope and plan are
+remembered per browser.
+
 Every chart responds to hover: heat cells, day columns, stacked segments and
 module bars each show their own value, and the cumulative line has a crosshair
 that snaps to the nearest day — you aim at a date, not at a 2px line. Day columns

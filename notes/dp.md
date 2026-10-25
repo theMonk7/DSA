@@ -195,6 +195,508 @@ threading.Thread(target=main).start()   # only if you must keep recursion
 **Mental trigger:** write it top-down first to *discover* the recurrence, then
 convert to bottom-up if `n` is large or you need `O(1)` space.
 
+### The pipeline: brute force → memo → table → rolled table
+
+Every DP you write in an interview should travel this path. Each stage changes
+exactly one thing, so each stage is a small, checkable step:
+
+| Stage | What changes | What stays identical |
+|---|---|---|
+| 1. Brute-force recursion | — | the recurrence (choices + base cases) |
+| 2. Memoized recursion | add `@cache` | everything else |
+| 3. Table (bottom-up) | stack → loops; `f(...)` → `dp[...]` | the recurrence body |
+| 4. Rolled table | keep only the rows the stencil reads | the loop body (with renamed cells) |
+
+The insight is that **all the thinking happens in stage 1.** Stages 2–4 are a
+translation, and translation is mechanical if you ask the right questions. The
+recursion is the source of truth; the table is just the recursion's call graph,
+evaluated in an order where nobody waits.
+
+**Mental trigger:** never try to "see" the table directly on a new problem. Write
+`f`, prove it on a tiny input, then translate. Jumping straight to `dp[i][j]` is how
+off-by-one and wrong-direction bugs get in.
+
+### Write the recursion so it converts cleanly
+
+A recursion converts to a table only if it is a **pure function of its arguments**.
+Four rules, each one a common way to break that:
+
+1. **Arguments = only what changes and matters.** If `nums`, `n`, or `target` never
+   change across calls, they are closure variables, not parameters. Every parameter
+   becomes a table dimension, so a wasted parameter is a wasted dimension.
+2. **Return the answer; don't accumulate it.** `f(i, running_sum)` that updates a
+   global `best` cannot be tabulated — the "answer" lives outside the function.
+   Rewrite as `f(i)` = best achievable *from here*, and add the gain on the way back
+   up: `gain + f(next)`.
+3. **No mutable arguments.** Passing a `path` list or a `visited` set makes the state
+   unhashable and unbounded. If the set is small (≤ 20), turn it into a bitmask int;
+   otherwise you have the wrong state.
+4. **Arguments must be small integers with a known range.** That range *is* the
+   table size. If an argument can be anything (a float, a string slice, a sum up to
+   10⁹), either re-encode it (index instead of slice, offset for negatives) or stay
+   with memo.
+
+```python
+# BAD — accumulates, carries the running total, uses a global
+best = 0
+def go(i, total):
+    global best
+    if i >= len(nums):
+        best = max(best, total); return
+    go(i + 1, total)
+    go(i + 2, total + nums[i])
+
+# GOOD — pure: answer for the suffix starting at i, gain added on return
+@cache
+def f(i):
+    if i >= n: return 0
+    return max(f(i + 1), nums[i] + f(i + 2))
+```
+
+#### Suffix framing vs prefix framing
+
+Two equally valid ways to define the same state — pick one per problem and never
+mix them inside one solution:
+
+| | Suffix framing | Prefix framing |
+|---|---|---|
+| Meaning | `f(i)` = answer for items `i..n-1` | `dp[i]` = answer for the first `i` items |
+| Base | `f(n)` = empty suffix | `dp[0]` = empty prefix |
+| Recursion calls | `f(i+1)`, `f(i+2)` | `dp[i-1]`, `dp[i-2]` |
+| Loop | `i` from `n-1` down to `0` | `i` from `1` up to `n` |
+| Answer | `dp[0]` | `dp[n]` |
+
+Top-down recursion falls naturally into suffix framing ("what's left to decide?").
+Most textbook tables use prefix framing. They are mirror images; **translating your
+own suffix recursion to a descending loop is completely fine** — you do not have to
+re-derive it in prefix form.
+
+### The conversion script — seven questions, seven blanks
+
+Run these questions on your memoized `f` in order. Each answer fills one blank in
+the template below.
+
+| # | Question about `f` | Fills in |
+|---|---|---|
+| 1 | What are `f`'s parameters? | **Table dimensions** (one per parameter) |
+| 2 | What range does each parameter take, *including* base-case values? | **Table size** per dimension |
+| 3 | What do the base-case `return`s return, and for which arguments? | **Initial fill** + boundary cells |
+| 4 | In each recursive call, does each argument get *bigger* or *smaller*? | **Loop direction** per dimension |
+| 5 | Does any call change two dimensions in opposite directions, or need a whole row first? | **Loop nesting order** |
+| 6 | What does the body do with the call results (max/min/sum/or)? | **Combine operator + identity value** |
+| 7 | What was the top-level call? | **Answer cell** |
+
+```python
+# ---- Stage 2: memoized recursion (the source of truth) ----
+@cache
+def f(a, b):
+    if BASE(a, b):
+        return BASE_VALUE                       # Q3
+    best = IDENTITY                             # Q6
+    for choice in CHOICES(a, b):
+        best = COMBINE(best, GAIN(choice) + f(NEXT_A, NEXT_B))
+    return best
+answer = f(A0, B0)                              # Q7
+
+# ---- Stage 3: table — same body, f(...) becomes dp[...] ----
+dp = [[IDENTITY] * SIZE_B for _ in range(SIZE_A)]   # Q1, Q2
+for (a, b) in BASE_CELLS:                           # Q3
+    dp[a][b] = BASE_VALUE
+for a in DIRECTION_A:                               # Q4, Q5 (outer)
+    for b in DIRECTION_B:                           # Q4, Q5 (inner)
+        if BASE(a, b): continue
+        best = IDENTITY
+        for choice in CHOICES(a, b):
+            best = COMBINE(best, GAIN(choice) + dp[NEXT_A][NEXT_B])
+        dp[a][b] = best
+answer = dp[A0][B0]                                 # Q7
+```
+
+**Complexity is free once the table exists:** time = (number of cells) × (work per
+cell, i.e. number of choices); space = number of cells, before rolling.
+
+**The discriminator — memorise this one question:**
+
+> **"What arguments do the recursive calls pass?"**
+
+Its answer alone decides three things: the **direction** of each loop (the sign of
+each change), the **nesting order** (which dimension must finish first), and whether
+the table **can be rolled** (how far back the calls reach). Everything else in the
+script is bookkeeping.
+
+#### Q2 — table size and the `+1` rule
+
+Size each dimension by the full range of values the parameter can take **at a base
+case too**, not just in the body.
+
+- `f(i)` with base `if i == n` → `i ∈ [0, n]` → size **`n + 1`**.
+- `f(cap)` with `cap` from `W` down to `0` → size **`W + 1`**.
+- `f(i)` that calls `f(i + 2)` with base `if i >= n` → `i` can reach `n + 1` → size
+  **`n + 2`**, or clamp the read: `dp[i + 2] if i + 2 <= n else 0`.
+- **Negative values** (e.g. a running sum in `[-T, T]`) → shift by an offset:
+  index = `s + T`, size **`2T + 1`**.
+- Two sequences of lengths `m`, `n` → **`(m + 1) × (n + 1)`**; the extra row and
+  column are the "one string is empty" base cases.
+
+Rule of thumb: if you index `dp[i - 1]` anywhere, you need either `i ≥ 1` in the
+loop or a padded `dp[0]`. The padding row/column almost always *is* a base case —
+that is why it's free.
+
+#### Q3 — base cases come in three kinds
+
+| Kind | Example in `f` | In the table |
+|---|---|---|
+| Terminal success | `if amount == 0: return 0` | write that value into its cell before the loops |
+| Terminal failure | `if amount < 0: return INF` | either guard the read (`if c <= a`) or pad with the failure value |
+| Ran out of input | `if i == n: return 0` | the padding row/column (`dp[n][*]`) |
+
+Failure cases usually vanish in the table because you **guard the read** instead of
+storing a cell for a negative index — that is the `if c <= a:` / `if wt[i] <= cap:`
+you see in every knapsack.
+
+#### Q4 — loop direction, read straight off the calls
+
+For **each dimension independently**:
+
+- the calls pass a **larger** value (`i + 1`, `j + 1`) → that cell must be computed
+  first → loop this dimension **downward**;
+- the calls pass a **smaller** value (`i - 1`, `amount - coin`) → loop **upward**;
+- the calls pass the **same** value of this dimension → no constraint from this call
+  on this dimension; look at the other dimension.
+
+| Calls made by `f` | Direction |
+|---|---|
+| `f(i+1)`, `f(i+2)` | `i` from `n-1` down to `0` |
+| `f(a - c)` for each coin | `a` from `1` up to `target` |
+| `f(i+1, j+1)`, `f(i+1, j)`, `f(i, j+1)` | `i` down, `j` down |
+| `f(i+1, j-1)`, `f(i+1, j)`, `f(i, j-1)` (interval) | `i` down, `j` up from `i` |
+| `f(i+1, cap)`, `f(i+1, cap-w)` | `i` down; `cap` any order (it only reads row `i+1`) |
+
+**Mental trigger:** "the loop runs *toward* the top-level call." The top-level call
+is the last cell you fill.
+
+#### Q5 — loop nesting order
+
+With two or more dimensions you must also decide which loop is outer. The rule: a
+cell's dependencies must all be finished. Three cases:
+
+1. **Every call strictly advances one dimension** (all calls are `f(i+1, …)`) →
+   that dimension is outer; inner order is free. *Knapsack: `i` outer.*
+2. **Calls move both dimensions in the same direction** (`f(i+1, j)`, `f(i, j+1)`,
+   `f(i+1, j+1)`) → either nesting works. Pick the one you want to *roll* as the
+   outer loop. *LCS, edit distance, grid paths.*
+3. **Calls move dimensions in opposite directions** (`f(i+1, j)`, `f(i, j-1)`) →
+   `i` must go down while `j` goes up, with `j` starting at `i`; or iterate by
+   **interval length** as the outer loop (`length = 1 .. n`, then `i`, with
+   `j = i + length - 1`). *Interval DP, palindromes, burst balloons.*
+
+The one place nesting changes the **answer**, not just correctness, is the coin
+change counting split (§6.4): items outer = combinations, amount outer =
+permutations. That is not a bug in translation — the two nestings are two different
+recurrences. Decide which one your `f` is before you write loops.
+
+#### Q6 — picking the optimum: combine operator and identity
+
+The body of `f` folds over choices with some operator. The table needs the operator
+**and** its identity (the "nothing yet" value) for the initial fill:
+
+| Question asks for | Combine | Identity / "impossible" | Typical base |
+|---|---|---|---|
+| maximum value / length | `max` | `-inf` (or `0` if "take nothing" is legal) | `0` |
+| minimum cost / count | `min` | `inf` | `0` |
+| number of ways | `+` | `0` | `1` (the empty way) |
+| is it possible? | `or` | `False` | `True` |
+| probability / expectation | weighted `+` | `0` | `1` or `0` |
+
+Two traps hide here:
+
+- **Identity ≠ base.** "Number of ways to make amount 0" is `1`, not `0`. "Min
+  coins for amount 0" is `0`, but every *other* cell starts at `inf`. Mixing these up
+  is the single most common wrong answer.
+- **Impossible must be distinguishable from zero.** If "0 coins" and "impossible"
+  both store `0`, `min` will happily pick the impossible branch. Use `inf`/`-inf` and
+  convert at the end (`-1 if dp[t] == INF else dp[t]`).
+
+### Worked conversion — 0/1 knapsack (row-by-row dependency)
+
+Items with `wt[i]`, `val[i]`, capacity `W`; each item at most once; maximize value.
+
+**Stage 1–2: the recursion.** Choice at item `i`: skip it, or take it if it fits.
+
+```python
+from functools import cache
+
+def knapsack(wt, val, W):
+    n = len(wt)
+
+    @cache
+    def f(i, cap):                   # best value from items i..n-1 with cap left
+        if i == n:
+            return 0
+        best = f(i + 1, cap)                                 # skip
+        if wt[i] <= cap:
+            best = max(best, val[i] + f(i + 1, cap - wt[i])) # take
+        return best
+
+    return f(0, W)
+```
+
+**Stage 3: run the script.**
+
+| # | Question | Answer | Produces |
+|---|---|---|---|
+| 1 | Parameters? | `i`, `cap` | `dp[i][cap]` |
+| 2 | Ranges? | `i ∈ [0, n]`, `cap ∈ [0, W]` | `(n+1) × (W+1)` |
+| 3 | Base? | `i == n → 0` | row `n` all zeros (free from the initial fill) |
+| 4 | Directions? | calls pass `i+1` → `i` down; `cap`, `cap-w` both in row `i+1` → free | `for i in range(n-1, -1, -1)` |
+| 5 | Nesting? | every call advances `i` → case 1 | `i` outer, `cap` inner |
+| 6 | Combine? | `max`, identity 0 ("take nothing") | init `0` |
+| 7 | Answer? | `f(0, W)` | `dp[0][W]` |
+
+```python
+def knapsack(wt, val, W):
+    n = len(wt)
+    dp = [[0] * (W + 1) for _ in range(n + 1)]
+    for i in range(n - 1, -1, -1):
+        for cap in range(W + 1):
+            best = dp[i + 1][cap]
+            if wt[i] <= cap:
+                best = max(best, val[i] + dp[i + 1][cap - wt[i]])
+            dp[i][cap] = best
+    return dp[0][W]
+```
+**Time O(n·W) / Space O(n·W)**
+
+**Stage 4: roll it.** Row `i` reads only row `i+1` → keep one row. Row `i` reads
+`row[cap]` (same column) and `row[cap - w]` (a column to the **left**). If you
+overwrite in place left-to-right, `row[cap - w]` is already the *new* row — the item
+gets taken twice (that is unbounded knapsack). So go **right-to-left**:
+
+```python
+def knapsack(wt, val, W):
+    row = [0] * (W + 1)                  # row i+1, overwritten into row i
+    for i in range(len(wt) - 1, -1, -1): # item order no longer matters
+        for cap in range(W, wt[i] - 1, -1):  # descending: cap-w still old
+            row[cap] = max(row[cap], val[i] + row[cap - wt[i]])
+    return row[W]
+```
+**Time O(n·W) / Space O(W)**
+
+### Worked conversion — LCS (diagonal dependency)
+
+**The recursion.** `f(i, j)` = LCS of `a[i:]` and `b[j:]`.
+
+```python
+@cache
+def f(i, j):
+    if i == m or j == n:
+        return 0
+    if a[i] == b[j]:
+        return 1 + f(i + 1, j + 1)
+    return max(f(i + 1, j), f(i, j + 1))
+```
+
+| # | Answer | Produces |
+|---|---|---|
+| 1 | `i`, `j` | `dp[i][j]` |
+| 2 | `i ∈ [0, m]`, `j ∈ [0, n]` | `(m+1) × (n+1)` |
+| 3 | `i == m` or `j == n` → 0 | last row and last column zero (free) |
+| 4 | calls pass `i+1` and `j+1` → both down | `range(m-1, -1, -1)`, `range(n-1, -1, -1)` |
+| 5 | same direction → case 2, either nesting | `i` outer (so we can roll rows) |
+| 6 | `max`, identity 0 | init `0` |
+| 7 | `f(0, 0)` | `dp[0][0]` |
+
+```python
+def lcs(a, b):
+    m, n = len(a), len(b)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m - 1, -1, -1):
+        for j in range(n - 1, -1, -1):
+            if a[i] == b[j]:
+                dp[i][j] = 1 + dp[i + 1][j + 1]
+            else:
+                dp[i][j] = max(dp[i + 1][j], dp[i][j + 1])
+    return dp[0][0]
+```
+
+**Roll it.** The stencil for `dp[i][j]` is three cells:
+
+```
+row i   :  [ j ]  ← [j+1]        (current row, already new)
+row i+1 :    ↑    ↖
+           [ j ]   [j+1]         (previous row: "below" and "diagonal")
+```
+
+One array, `j` descending: before you overwrite `row[j]` it still holds `dp[i+1][j]`
+(below); `row[j+1]` was just written, so it is `dp[i][j+1]` (right). The diagonal
+`dp[i+1][j+1]` was overwritten one step ago — so **save it in a scalar** before each
+overwrite:
+
+```python
+def lcs(a, b):
+    m, n = len(a), len(b)
+    row = [0] * (n + 1)
+    for i in range(m - 1, -1, -1):
+        diag = 0                         # dp[i+1][n]
+        for j in range(n - 1, -1, -1):
+            below = row[j]               # dp[i+1][j]; becomes diag for j-1
+            if a[i] == b[j]:
+                row[j] = 1 + diag
+            else:
+                row[j] = max(below, row[j + 1])
+            diag = below
+    return row[0]
+```
+**Time O(m·n) / Space O(n)** — make `b` the shorter string for `O(min(m, n))`.
+
+### Worked conversion — longest palindromic subsequence (interval dependency)
+
+**The recursion.** `f(i, j)` = longest palindromic subsequence inside `s[i..j]`.
+
+```python
+@cache
+def f(i, j):
+    if i > j:  return 0
+    if i == j: return 1
+    if s[i] == s[j]:
+        return 2 + f(i + 1, j - 1)
+    return max(f(i + 1, j), f(i, j - 1))
+```
+
+| # | Answer | Produces |
+|---|---|---|
+| 1 | `i`, `j` | `dp[i][j]` |
+| 2 | both in `[0, n-1]`; `i > j` is the empty range | `n × n`, lower triangle stays `0` |
+| 3 | `i == j → 1`; `i > j → 0` | diagonal `1`, below-diagonal `0` (free) |
+| 4 | calls pass `i+1` (down) and `j-1` (up) | `i` from `n-1` down; `j` from `i+1` up |
+| 5 | opposite directions → case 3 | `i` outer descending, `j` inner starting at `i+1` |
+| 6 | `max`, identity 0 | init `0` |
+| 7 | `f(0, n-1)` | `dp[0][n-1]` |
+
+```python
+def lps(s):
+    n = len(s)
+    dp = [[0] * n for _ in range(n)]
+    for i in range(n - 1, -1, -1):
+        dp[i][i] = 1
+        for j in range(i + 1, n):
+            if s[i] == s[j]:
+                dp[i][j] = 2 + dp[i + 1][j - 1]
+            else:
+                dp[i][j] = max(dp[i + 1][j], dp[i][j - 1])
+    return dp[0][n - 1]
+```
+
+Equivalent "by length" order — use it when the recursion splits at an inner `k`
+(burst balloons, matrix chain), because there the readable invariant is "all
+shorter intervals are done":
+
+```python
+for length in range(2, n + 1):
+    for i in range(n - length + 1):
+        j = i + length - 1
+        ...                              # same body
+```
+
+**Roll it.** Stencil reads row `i+1` at `j-1` and `j`, and row `i` at `j-1`. Same
+trick as LCS, but `j` ascends, so "already new" is on the left:
+
+```python
+def lps(s):
+    n = len(s)
+    row = [0] * n
+    for i in range(n - 1, -1, -1):
+        row[i] = 1
+        diag = 0                         # dp[i+1][i]: empty range
+        for j in range(i + 1, n):
+            below = row[j]               # dp[i+1][j]
+            if s[i] == s[j]:
+                row[j] = 2 + diag
+            else:
+                row[j] = max(below, row[j - 1])
+            diag = below
+    return row[n - 1]
+```
+**Time O(n²) / Space O(n)**
+
+### Space optimization — the decision procedure
+
+Draw the **stencil**: the set of cells `dp[i][j]` reads, relative to itself. Then:
+
+| Stencil reads | Keep | Inner-loop direction when in place |
+|---|---|---|
+| `k` previous scalars (`i-1`, `i-2`) | `k` variables | — |
+| previous row only, same or **left** columns | 1 row | **right-to-left** (0/1 knapsack) |
+| previous row only, same or **right** columns | 1 row | left-to-right |
+| previous row + current row left (`dp[i][j-1]`) | 1 row | left-to-right (unbounded knapsack, unique paths) |
+| previous row + current row + **diagonal** | 1 row + `diag` scalar | the order your loop already uses |
+| arbitrary earlier rows (`dp[j]` for all `j < i`) | **cannot roll** | — (O(n²) LIS, word break) |
+
+The in-place direction rule in one line: **write cells in the order that destroys
+an old value only after its last reader has run.** If the readers of `row[x]` are at
+higher indices, go descending; at lower indices, go ascending.
+
+**When not to roll:**
+
+- You must **reconstruct the choices** (print the LCS, list the items). The
+  backtrack in §17 walks the full table; a rolled table has thrown it away.
+- The table is small enough not to matter — a rolled solution is harder to explain
+  and easier to break. In an interview, say "this can be rolled to O(W)" and only
+  do it if asked.
+
+### When to stay with memo instead
+
+Tabulation computes **every** cell in the box. Memo computes only the cells the top
+call **reaches**. Stay with memo when:
+
+- the state space is huge but reachable states are few (sums up to 10⁹, sparse
+  masks, digit DP with tight flags);
+- the order is awkward to express as loops (DP on a DAG/tree, `f` on a grid with
+  arbitrary neighbours like LC 329 — any order that works is a topological sort);
+- the recursion depth is small (≤ ~1000 in Python).
+
+Convert to a table when `n` is large (recursion depth), when you need the space
+optimisation, or when the constant factor matters.
+
+### Wrong-answer smells (conversion bugs)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `min` problem returns `0` | table initialised to `0`, not `inf` | init `inf`, set only true bases to `0` |
+| count-ways problem returns `0` everywhere | base "empty way" set to `0` | `dp[0] = 1` |
+| `IndexError` at `dp[i-1]` / `dp[i+1]` | table not padded for the base row | size by Q2 including base values |
+| reads `0` where a real value belonged | loop runs *away* from the top-level call | re-derive direction from the call arguments (Q4) |
+| item used twice in 0/1 knapsack | 1D roll iterated ascending | iterate capacity **descending** |
+| item used once in unbounded knapsack | 1D roll iterated descending | iterate capacity **ascending** |
+| counts orderings when it shouldn't (or vice versa) | loop nesting swapped | items outer = combinations; amount outer = permutations |
+| rolled LCS / edit distance is off | diagonal overwritten before use | save `diag` in a scalar before each write |
+| memo is right, table is wrong | a base cell only set on one edge, or unreachable cells contaminate `min`/`max` | fill every base listed in Q3; keep "impossible" as `inf` |
+| returns `inf` / `-inf` to the caller | forgot to map the sentinel | `-1 if ans == INF else ans` |
+
+### Drill — convert these yourself
+
+Answer the seven questions for each before you look at the answer line.
+
+1. `f(r, c) = f(r+1, c) + f(r, c+1)`, base `f(R-1, C-1) = 1`, out of grid → 0.
+   *Answer:* `(R+1) × (C+1)` padded with zeros, `dp[R-1][C-1] = 1`, both loops
+   descending, either nesting, combine `+`, answer `dp[0][0]`; rolls to one row —
+   each cell reads the *new* right neighbour, so iterate `c` descending.
+2. `f(i) = any(s[i:j] in words and f(j) for j in range(i+1, n+1))`, `f(n) = True`.
+   *Answer:* size `n+1`, `dp[n] = True`, calls pass larger `j` → `i` descending,
+   combine `or`, identity `False`, answer `dp[0]`; reads all later cells →
+   cannot roll.
+3. `f(i, s)` = ways to assign `±` to `nums[i:]` given running sum `s` so far;
+   calls `f(i+1, s + x)` and `f(i+1, s - x)`; `f(n, s) = 1 if s == target else 0`;
+   `s ∈ [-T, T]` where `T = sum(nums)`.
+   *Answer:* `(n+1) × (2T+1)` with index `s + T`; `i` descending, `s` free; guard
+   reads that fall outside `[-T, T]`; combine `+`; answer `dp[0][0 + T]`; rolls to
+   two rows (reads both `s - x` and `s + x`, so in place is unsafe in either direction).
+4. `f(i, holding)` for stock with cooldown: `f(i, 0) = max(f(i+1, 0), -p[i] + f(i+1, 1))`,
+   `f(i, 1) = max(f(i+1, 1), p[i] + f(i+2, 0))`, `f(i ≥ n, *) = 0`.
+   *Answer:* `(n+2) × 2`, `i` descending, compute both `holding` values per `i`,
+   combine `max`, answer `dp[0][0]`; reads `i+1` and `i+2` → keep 2 rows × 2 =
+   four scalars.
+
 ---
 
 ## 4. How to FIND the state (the hardest part)
