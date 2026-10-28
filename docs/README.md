@@ -38,6 +38,34 @@ Unconnected it uses `localStorage` under the key `pattern-ledger-v1`; clearing
 site data wipes it. **Export backup** on the dashboard writes a JSON file and **Import
 backup** reads one back, which works on any backend.
 
+## Offline
+
+The site works with no network once you have opened it online at least once
+after deploying.
+
+- **The app itself** is cached by a service worker (`docs/sw.js`): the page,
+  `curriculum.json`, the markdown and highlighting libraries, and the fonts. The
+  page and data are fetched network-first with a 4-second fallback to the cache,
+  so updates still arrive when you are online; libraries and fonts are
+  cache-first. `api.github.com` is never cached.
+- **Your progress, not connected to GitHub:** it already lives in this browser's
+  storage, so nothing changes.
+- **Your progress, connected to a gist:** every save writes a copy on this device
+  first. Offline, the app opens from that copy, keeps accepting ticks, notes and
+  tags, and the sidebar reads *Offline · changes waiting to sync*. When the
+  connection returns it fetches the gist, merges **item by item — whichever side
+  was edited most recently wins** — and pushes the result. Edits made on another
+  device in the meantime are kept, not overwritten. If you close the tab while
+  offline, the leftover edits are merged on your next online visit.
+
+Two limits worth knowing:
+
+- Deleting one of your own modules or problems while offline, when it still exists
+  in the gist, brings it back on sync — merging custom content is a union.
+- Safari can clear a site's storage after about a week without a visit. On iPhone
+  or iPad, use **Share → Add to Home Screen**; installed web apps keep their data.
+  The page ships a manifest, so Chrome and Edge also offer **Install**.
+
 ## Syncing across browsers (optional)
 
 Without this the site saves to one browser. Connecting takes about a minute and

@@ -1,0 +1,13 @@
+{
+  "name": "Pattern Ledger",
+  "short_name": "Ledger",
+  "description": "DSA study tracker: concepts from my notes plus the Striver A2Z sheet.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1319",
+  "theme_color": "#15635c",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

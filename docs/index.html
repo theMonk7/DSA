@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Personal DSA study tracker: concepts from my notes plus the Striver A2Z problem sheet.">
 <meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#15635c">
 <style>
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0;font-family:system-ui,sans-serif;font-size:14px}
@@ -781,11 +784,11 @@ function toast(m){toastEl.textContent=m;toastEl.classList.add("show");
 function st(id){
   var s=STATE[id];
   if(!s)return {done:false,note:"",fav:false,repeat:false,tags:[],link:"",linkKind:"",
-                doneAt:"",firstDoneAt:""};
+                doneAt:"",firstDoneAt:"",t:0};
   return {done:!!s.done,note:s.note||"",fav:!!s.fav,repeat:!!s.repeat,
           tags:Array.isArray(s.tags)?s.tags:[],
           link:s.link||"",linkKind:s.linkKind||"",
-          doneAt:s.doneAt||"",firstDoneAt:s.firstDoneAt||""};
+          doneAt:s.doneAt||"",firstDoneAt:s.firstDoneAt||"",t:+s.t||0};
 }
 function isDone(id){return !!st(id).done;}
 function setItem(id,patch){
@@ -794,6 +797,7 @@ function setItem(id,patch){
   var cur=st(id), next={}, k;
   for(k in cur)if(Object.prototype.hasOwnProperty.call(cur,k))next[k]=cur[k];
   for(k in patch)if(Object.prototype.hasOwnProperty.call(patch,k))next[k]=patch[k];
+  next.t=Date.now();               // last edit wins when an offline copy is merged back
   STATE[id]=next;
   return next;
 }
@@ -849,6 +853,7 @@ function ghWriteCreds(){
     if(GH.user){
       if(GH.gistId)localStorage.setItem(ghGistKey(),GH.gistId);
       else localStorage.removeItem(ghGistKey());
+      localStorage.setItem(GH_USER_KEY,JSON.stringify(GH.user));
     }
   }catch(e){ /* nothing we can do; the session still works in memory */ }
 }
@@ -940,7 +945,7 @@ function ghDisconnect(){
   GH.gistId=null;
   ghWriteCreds();                   // drops this account's remembered gist id
   GH.token=null; GH.user=null;
-  try{localStorage.removeItem(GH_TOKEN_KEY);}catch(e){ /* storage blocked */ }
+  try{localStorage.removeItem(GH_TOKEN_KEY);localStorage.removeItem(GH_USER_KEY);}catch(e){ /* storage blocked */ }
   store=localStore();
   Promise.all([store.load(),store.loadCustom()]).then(function(r){
     STATE=r[0]||{}; CUSTOM=r[1]||emptyCustom();
@@ -958,25 +963,116 @@ function ghErrText(e){
 }
 
 /* One gist file holds progress and custom modules, so both reads share one request. */
+/* ---- offline-first: a copy of the gist on this device ----
+   Every gist save writes here first. Offline, reads come from here and edits
+   wait here (dirty) until the network is back, then merge into the gist. */
+var GH_USER_KEY="pattern-ledger-gh-user";
+function mirrorKey(){ return "pattern-ledger-mirror-v1:"+((GH.user&&GH.user.login)||"_"); }
+function mirrorRead(){
+  try{ var r=localStorage.getItem(mirrorKey()); return r?JSON.parse(r):null; }
+  catch(e){ return null; }
+}
+function mirrorWrite(state,custom,dirty){
+  try{
+    localStorage.setItem(mirrorKey(),JSON.stringify({state:state,custom:custom,
+      dirty:!!dirty,savedAt:Date.now()}));
+    return true;
+  }catch(e){ return false; }  // quota or blocked: the gist copy is still the record
+}
+function ghCachedUser(){
+  try{ var r=localStorage.getItem(GH_USER_KEY); return r?JSON.parse(r):null; }catch(e){ return null; }
+}
+/* Item by item, the side edited most recently wins. Ties go to `local`. */
+function mergeStates(remote,local){
+  var out={}, k;
+  remote=remote||{}; local=local||{};
+  for(k in remote)if(Object.prototype.hasOwnProperty.call(remote,k))out[k]=remote[k];
+  for(k in local)if(Object.prototype.hasOwnProperty.call(local,k)){
+    var r=out[k], l=local[k];
+    if(!r||(+l.t||0)>=(+r.t||0))out[k]=l;
+  }
+  return out;
+}
+/* Custom modules/sections/problems: union by id, the local copy wins a clash. */
+function mergeCustom(remote,local){
+  remote=remote||emptyCustom(); local=local||emptyCustom();
+  function u(a,b){
+    var byId={}, order=[];
+    (a||[]).forEach(function(x){ if(x&&x.id){ if(!byId[x.id])order.push(x.id); byId[x.id]=x; } });
+    (b||[]).forEach(function(x){ if(x&&x.id){ if(!byId[x.id])order.push(x.id); byId[x.id]=x; } });
+    return order.map(function(id){return byId[id];});
+  }
+  return {topics:u(remote.topics,local.topics),groups:u(remote.groups,local.groups),
+          items:u(remote.items,local.items)};
+}
+function isOffline(){ return typeof navigator!=="undefined"&&navigator.onLine===false; }
+
 function gistStore(){
-  var fetchP=null, saveTimer=null;
+  var fetchP=null, saveTimer=null, self;
+  function readRemote(){
+    return ghApi("/gists/"+GH.gistId).then(function(g){
+      var f=g.files&&g.files[GIST_FILE];
+      if(!f)return {state:{},custom:emptyCustom()};
+      if(f.truncated&&f.raw_url){
+        return fetch(f.raw_url).then(function(r){return r.text();}).then(ghParse);
+      }
+      return ghParse(f.content||"");
+    });
+  }
+  // An unreachable or failing GitHub is not a reason to show you nothing.
+  function fallsBack(e){ return !(e&&(e.code==="bad_token"||e.code==="not_found")); }
   function fetchAll(){
     if(!fetchP){
-      fetchP=ghApi("/gists/"+GH.gistId).then(function(g){
-        var f=g.files&&g.files[GIST_FILE];
-        if(!f)return {state:{},custom:emptyCustom()};
-        if(f.truncated&&f.raw_url){
-          return fetch(f.raw_url).then(function(r){return r.text();}).then(ghParse);
+      var mir=mirrorRead();
+      fetchP=readRemote().then(function(remote){
+        self.offline=false;
+        if(mir&&mir.dirty){
+          // edits left over from an offline session: fold them in, push after load
+          self.pendingPush=true;
+          return {state:mergeStates(remote.state,mir.state),
+                  custom:mergeCustom(remote.custom,mir.custom)};
         }
-        return ghParse(f.content||"");
+        mirrorWrite(remote.state,remote.custom,false);
+        return remote;
+      },function(e){
+        if(mir&&fallsBack(e)){ self.offline=true; return {state:mir.state||{},custom:mir.custom||emptyCustom()}; }
+        return Promise.reject(e);
       });
     }
     return fetchP;
   }
+  function markOffline(){
+    if(!self.offline)toast("Offline \u2014 changes are saved on this device and will sync when you are back online.");
+    self.offline=true;
+    renderAccount();
+  }
   function flush(){
-    fetchP=null;   // our own write is now the truth; drop the cached read
+    fetchP=null;                       // our own write is now the truth; drop the cached read
+    mirrorWrite(STATE,CUSTOM,true);    // on this device first, always
+    if(isOffline()){ markOffline(); return Promise.resolve(true); }
     return ghApi("/gists/"+GH.gistId,{method:"PATCH",body:{files:ghFiles(ghPayload())}})
-      .then(function(){return true;},function(){return false;});
+      .then(function(){
+        mirrorWrite(STATE,CUSTOM,false);
+        if(self.offline){ self.offline=false; renderAccount(); }
+        return true;
+      },function(e){
+        if(fallsBack(e)){ markOffline(); return true; }   // kept locally, retried on reconnect
+        return false;
+      });
+  }
+  /* Back online: merge what changed elsewhere with what you did here, then push. */
+  function sync(){
+    var mir=mirrorRead();
+    if(!mir||!mir.dirty){ if(self.offline){self.offline=false;renderAccount();} return Promise.resolve(false); }
+    return readRemote().then(function(remote){
+      STATE=mergeStates(remote.state,STATE);
+      CUSTOM=mergeCustom(remote.custom,CUSTOM);
+      rebuildData(); render();
+      return flush().then(function(ok){
+        if(ok&&!self.offline)toast("Back online \u2014 your offline changes are synced.");
+        return ok;
+      });
+    },function(){ return false; });
   }
   function schedule(){
     clearTimeout(saveTimer);
@@ -984,8 +1080,11 @@ function gistStore(){
       saveTimer=setTimeout(function(){flush().then(res);},1200);
     });
   }
-  return {
+  self={
     kind:"gist",
+    offline:false,
+    pendingPush:false,
+    sync:sync,
     label:(GH.user&&GH.user.login)||"gist",
     load:function(){return fetchAll().then(function(p){return p.state;});},
     loadCustom:function(){return fetchAll().then(function(p){return p.custom;});},
@@ -994,6 +1093,7 @@ function gistStore(){
     saveCustom:function(){return flush();},
     watch:function(){}
   };
+  return self;
 }
 
 function dbStore(db){
@@ -2081,7 +2181,13 @@ function renderAccount(){
       : esc((u.login||"?")[0].toUpperCase());
     el.innerHTML='<div class="acct"><div class="avatar">'+pic+'</div>'+
       '<div class="acct-mid"><div class="acct-name" title="'+esc(u.login)+'">'+esc(u.name||u.login)+'</div>'+
-      '<div class="acct-sync"><span class="sdot"></span>Synced to your gist</div></div>'+
+      (function(){
+        var m=mirrorRead(), off=store.offline||isOffline(), wait=m&&m.dirty;
+        if(off)return '<div class="acct-sync off"><span class="sdot"></span>Offline \u00b7 '+
+          (wait?'changes waiting to sync':'saved on this device')+'</div>';
+        if(wait)return '<div class="acct-sync off"><span class="sdot"></span>Syncing\u2026</div>';
+        return '<div class="acct-sync"><span class="sdot"></span>Synced to your gist</div>';
+      })()+'</div>'+
       '<button class="linkbtn" id="ghDisconnect">Disconnect</button></div>'+
       '<div class="acct-note"><a href="https://gist.github.com/'+esc(u.login)+'" target="_blank" rel="noopener">Your gists \u2197</a></div>';
     return;
@@ -3112,9 +3218,31 @@ try{
 }catch(e){ /* storage blocked: fall back to the default palette */ }
 if(window.hljs&&window.hljs.configure)window.hljs.configure({ignoreUnescapedHTML:true});
 
+if(window.addEventListener){
+  window.addEventListener("online",function(){
+    if(store&&store.kind==="gist"&&store.sync)store.sync(); else renderAccount();
+  });
+  window.addEventListener("offline",function(){
+    if(store&&store.kind==="gist")store.offline=true;
+    renderAccount();
+    toast("You are offline. Everything still works; changes save on this device.");
+  });
+}
+/* Cache the app itself so it opens with no network. Not inside claude.ai, where
+   the frame refuses service workers, and only on https or localhost. */
+(function(){
+  try{
+    if(window.claude||typeof navigator==="undefined"||!("serviceWorker" in navigator))return;
+    var h=location.hostname;
+    if(location.protocol!=="https:"&&h!=="localhost"&&h!=="127.0.0.1")return;
+    var go=function(){ navigator.serviceWorker.register("sw.js").catch(function(){ /* offline caching unavailable; the app still works online */ }); };
+    if(document.readyState==="complete")go(); else window.addEventListener("load",go);
+  }catch(e){ /* never let offline support break the page */ }
+})();
+
 view.innerHTML='<div class="empty">Loading your curriculum…</div>';
 
-fetch("data/curriculum.json").then(function(r){
+fetch("data/curriculum.json",{cache:"no-cache"}).then(function(r){
   if(!r.ok)throw new Error("HTTP "+r.status);
   return r.json();
 }).then(function(d){
@@ -3143,6 +3271,18 @@ fetch("data/curriculum.json").then(function(r){
       if(e&&e.code==="bad_token"){
         GH.token=null; GH.user=null;
         try{localStorage.removeItem(GH_TOKEN_KEY);}catch(e2){ /* storage blocked */ }
+        setTimeout(function(){toast(ghErrText(e)+" Using this browser's copy.");},600);
+        return;
+      }
+      // GitHub unreachable: keep working from the copy of your gist on this device
+      var cu=ghCachedUser();
+      if(cu){
+        GH.user=cu; ghReadGistId();
+        if(GH.gistId&&mirrorRead()){
+          store=gistStore(); store.offline=true;
+          setTimeout(function(){toast("Offline \u2014 showing the copy of your progress saved on this device.");},600);
+          return;
+        }
       }
       setTimeout(function(){toast(ghErrText(e)+" Using this browser's copy.");},600);
     });
@@ -3155,6 +3295,8 @@ fetch("data/curriculum.json").then(function(r){
   CUSTOM=r[1]||emptyCustom();
   rebuildData();
   render();
+  // offline edits from a previous visit were merged on load: push them now
+  if(store.pendingPush){ store.pendingPush=false; store.bulk(); }
 }).catch(function(err){
   if(!DATA){
     view.innerHTML='<div class="empty">Could not load <code>data/curriculum.json</code>.<br>'+
