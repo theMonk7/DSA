@@ -120,7 +120,7 @@ const t = (n, c, x) => { console.log((c ? "  ok   " : "  FAIL ") + n + (c ? "" :
   t("module reset button present", view().includes('data-modreset="heaps"'));
   t("add problem button present", view().includes('data-addproblem="heaps"'));
   t("reset sits after add (right edge)", view().indexOf("data-addproblem") < view().indexOf("data-modreset"));
-  t("every problem row has a link control", !/class="row"/.test(view()) || view().includes("data-linkedit="));
+  t("every problem row has a link control", !/class="row"/.test(view()) || view().includes("data-edit="));
 
   clickBtn("fTodo"); await wait(60);
   t("module filter stays in module", view().includes("Heaps") && !view().includes("across every module"));

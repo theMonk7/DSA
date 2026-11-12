@@ -7,7 +7,7 @@
  * Your progress is not cached here: it lives in localStorage on this device and,
  * when connected, in your gist. This file only keeps the app itself loadable.
  */
-var CACHE = "pattern-ledger-v1";
+var CACHE = "pattern-ledger-v2";
 var NETWORK_TIMEOUT_MS = 4000;
 
 var SHELL = [
@@ -22,7 +22,7 @@ var STATIC = [
   "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"
 ];
-var FONT_CSS = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap";
+var FONT_CSS = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap";
 
 var CACHE_FIRST_HOSTS = ["cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 var NEVER_CACHE_HOSTS = ["api.github.com", "gist.githubusercontent.com"];

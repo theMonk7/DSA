@@ -58,6 +58,7 @@ jobs:
           node tools/test_hover.js
           node tools/test_estimate.js
           node tools/test_offline.js
+          node tools/test_move.js
 
       - name: Commit if the data changed
         run: |

@@ -204,6 +204,79 @@ to a LeetCode search for that number, the same rule the generated problems use.
 Your entries carry a **mine** tag and have an **Edit** button; generated ones do
 not. Deleting asks once, in place.
 
+## Editing a problem or section
+
+Every problem row has one **Edit** button. It opens a single dialog:
+
+- **Link**: paste a LeetCode, GeeksforGeeks, takeUforward or any other URL. Use
+  this when the built-in link is premium, wrong or missing. It links straight to
+  a LeetCode or GeeksforGeeks search, and has **Remove my link** to go back to
+  the built-in one.
+- **Section**: pick a module and section, or type a new section name. Its tick,
+  notes, tags, favourite and link go with it.
+- **Details** (only for problems you added): name, level, LeetCode number, and
+  **Delete**.
+
+Each part saves only if you changed it, and nothing is saved if any part is
+invalid.
+
+Every section header has a ✎ button: rename the section, or move it (with all
+its problems) to another module.
+
+- Generated problems and sections are rebuilt from your notes on every push, so
+  a move or rename is stored as an override in your custom content (`moves` /
+  `secMoves`) and synced like everything else in it. A rebuild does not undo it.
+- Moved problems carry a dashed **moved** tag, and edited sections an **edited**
+  tag. The dialog shows where they started, with **put it back**.
+- Put back rewrites the override to the original place and name rather than
+  deleting it, so merging with an older synced copy cannot bring the old change
+  back.
+- If a move points at a section that no longer exists (you renamed it in the
+  notes), the problem stays in its original place.
+- Concept sections come from the headings in your notes; to move one, move the
+  heading in the `.md` file.
+
+## Layouts
+
+The ◉ menu has two tabs: **Colours** (palette and light/dark/auto) and
+**Layout**. A layout changes structure, shape, type and motion; the palette
+changes colour. Any palette works with any layout. The content is the same in
+every layout.
+
+| View | Layout | What changes |
+|---|---|---|
+| 1 | Classic | The default: sidebar and cards |
+| 2 | Modern | Floating rounded sidebar and pill top bar, soft shadows, cards lift on hover, content rises in |
+| 3 | Sleek | Flat and dense, hairline dividers, underline tabs, sidebar on the right |
+| 4 | Funky | Thick ink outlines, hard offset shadows, tilted cards that bounce in, ticks wobble |
+| 5 | Poppy | Drifting colour blobs, pill buttons, round ticks that pop, animated candy-stripe progress bars |
+| 6 | Traditional | A ruled ledger page on a desk, serif type, folder tabs, no animation |
+| 7 | Artistic | Huge italic headlines with a wipe-in, numbered index, magazine-style card grid, drop caps |
+| 8 | Retro | Beveled desktop windows, gradient title bars, block progress bars, blinking cursor |
+
+Entry animations run when you change page or layout, not when a tick
+re-renders the page, and only the tick you click animates. With **Reduce
+motion** turned on in your OS, all animation is off.
+
+## Themes
+
+The ◉ menu has eleven palettes, each with a light and a dark set: Slate, Indigo,
+Forest, Plum, Modern, Ocean, Retro, Pop, Synthwave, Terminal and Ink. Some also
+change shape and type: Retro uses square corners, a monospaced display face and
+hard offset shadows; Pop and Modern use rounded corners and Space Grotesk;
+Terminal sets everything in IBM Plex Mono.
+
+Mode is **Light**, **Dark** or **Auto** (follow the system, and switch when it
+does). ◐ in the top bar flips between light and dark.
+
+Every text colour pair in the new palettes passes WCAG AA (4.5:1) on the
+surface it sits on. The chart hues stay at 3:1 or better on all of them.
+
+On a mouse or trackpad, a row's favourite and repeat icons (and a section's ✎)
+stay hidden until you hover over or focus it; anything switched on stays
+visible.
+Touch screens always show them.
+
 ## Tags
 
 Every problem automatically carries its module name as a tag (teal chip). It

@@ -9,6 +9,8 @@ const t = (n, c, x) => { console.log((c ? "  ok   " : "  FAIL ") + n + (c ? "" :
 /* ============ Part A: the service worker against a fake network ============ */
 async function swTests() {
   const ORIGIN = "https://user.github.io";
+  const SW_SRC = fs.readFileSync(path.join(ROOT, "docs/sw.js"), "utf8");
+  const CUR = SW_SRC.match(/var CACHE = "([^"]+)"/)[1];   // bumped whenever the shell changes
   const store = new Map();                       // the Cache Storage
   let online = true, fetched = [];
   const body = u => "BODY:" + u;
@@ -31,7 +33,7 @@ async function swTests() {
   const sandbox = {
     self: { addEventListener: (n, h) => (handlers[n] = h), location: { origin: ORIGIN },
             skipWaiting: () => Promise.resolve(), clients: { claim: () => Promise.resolve() } },
-    caches: { open: () => Promise.resolve(cache), keys: () => Promise.resolve(["pattern-ledger-v0", "pattern-ledger-v1", "other-app"]),
+    caches: { open: () => Promise.resolve(cache), keys: () => Promise.resolve(["pattern-ledger-v0", CUR, "other-app"]),
               delete: k => { sandbox._deleted.push(k); return Promise.resolve(true); } },
     _deleted: [],
     fetch: (r) => {
