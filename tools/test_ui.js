@@ -126,6 +126,23 @@ const t = (n, c, x) => { console.log((c ? "  ok   " : "  FAIL ") + n + (c ? "" :
   t("module filter stays in module", view().includes("Heaps") && !view().includes("across every module"));
   clickBtn("clearFilters"); await wait(60);
 
+  // practice/*.md: interview-set sections, company chips, premium tag, company filter
+  fire("click", tgt({ "[data-nav]": "topic", "data-nav": "topic", "data-id": "intervals" }));
+  await wait(40);
+  fire("click", tgt({ "[data-tab]": "problems", "data-tab": "problems" }));
+  await wait(40);
+  t("interview set section renders", view().includes("Interview set") && view().includes("Meeting Rooms III"));
+  t("company tags render as chips", view().includes('class="chip co') && view().includes('data-tagclick="Google"'));
+  t("premium problems are flagged", view().includes('class="tag prem"'));
+  t("company tags are offered in the tag bar", /chip-wrap co[^>]*><button class="chip co[^"]*" data-tagclick="Google"/.test(view()));
+  t("every LeetCode-numbered problem has a level", !/class="tag">LC \d/.test(view().replace(/<span class="tag t-(basic|core|pro)">[^<]+<\/span><span class="tag">LC/g, "")));
+  fire("click", tgt({ "[data-tagclick]": "Sprinklr", "data-tagclick": "Sprinklr" }));
+  await wait(40);
+  t("company chip filters the list", view().includes("Meeting Rooms III") && !view().includes("Teemo Attacking"));
+  fire("click", tgt({ "[data-tagclick]": "Sprinklr", "data-tagclick": "Sprinklr" }));
+  await wait(40);
+  t("clicking the company again clears it", view().includes("Teemo Attacking"));
+
   fire("click", tgt({ id: "paletteBtn" })); await wait(20);
   t("theme menu builds", get("#paletteMenu").innerHTML.includes("Indigo"));
   fire("click", tgt({ "[data-palette]": "forest", "data-palette": "forest", className: "menu-item" }));

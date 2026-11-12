@@ -1,6 +1,7 @@
 # Pattern Ledger
 
-A static study tracker built from `notes/*.md` plus the Striver A2Z DSA sheet.
+A static study tracker built from `notes/*.md`, the interview sets in
+`practice/*.md`, and the Striver A2Z DSA sheet.
 Every topic has two tabs: **Concepts** (your notes, rendered) and **Problems**
 (grouped by pattern, with LeetCode links).
 
@@ -283,6 +284,12 @@ Every problem automatically carries its module name as a tag (teal chip). It
 cannot be removed — it is what makes "module" and your own tags filter the same
 way.
 
+Problems tagged in a practice sheet also carry **company** chips (Google,
+Microsoft, Amazon, Netflix, Salesforce, Spotify, Sprinklr). They are always in the
+tag bar and filter like any other tag (click *Google* for Google-tagged problems;
+several chips narrow further, e.g. *Google* + *Sprinklr*). They cannot be removed
+per problem — edit the sheet. Each row's Basic / Core / Pro label is its level.
+
 - **Add**: open a problem's Notes panel, type in the tag box, press Enter.
 - **Filter**: click any chip. Several tags at once narrow the list (all must
   match). **Clear** resets them.
@@ -306,6 +313,33 @@ hand, you will see both; delete yours.
 The backup file (**Export backup**) contains your added modules and problems as
 well as your progress; **Import backup** merges them in, skipping anything whose
 id is already present.
+
+## Interview sets (`practice/*.md`)
+
+Each module has a `practice/<module>.md` with extra problems beyond your notes and
+the A2Z sheet, grouped by pattern, each row carrying a level and company tags:
+
+```markdown
+## Rooms, calendars & sweeps
+
+| LC | Problem | Level | Companies |
+|---:|---|---|---|
+| 2402 | [Meeting Rooms III](https://leetcode.com/problems/meeting-rooms-iii/) | pro | Google, Amazon |
+```
+
+- They show in the Problems tab as sections marked **Interview set**, after your
+  notes' sections and before A2Z.
+- A row for a problem the module already has does not repeat it: it adds its
+  company tags (and level) to the existing row. Those rows sit under *Already
+  listed — company tags* at the end of each file.
+- The build checks every row: the LC number must exist and the title must match
+  LeetCode's, or it prints a `WARN` line. Level must be `basic`, `core` or `pro`.
+- Item ids come from the module and LC number (`<module>-sheet-<n>`), so moving a
+  row to another section keeps its tick. If you later write the same problem up
+  in your notes, the notes entry wins and the sheet row only adds tags — the
+  sheet item's tick does not carry over.
+- Company tags are **indicative**: problems commonly reported for those
+  companies' interviews, not LeetCode's premium company data.
 
 ## Rebuilding after you edit your notes
 
@@ -341,6 +375,8 @@ The page itself (`docs/index.html`) only changes when you edit it directly.
 | a `####` or deeper | new entry nested under its parent heading |
 | a `###` heading tagged `(LC 42)` | new problem in that module |
 | a `def f(...):  # LC 42` line | new problem in that module |
+| `LC 42` anywhere else in a section (a list item, a table, prose, a code comment) | new problem in that section, titled from LeetCode, with the text after a list item's dash as its hint |
+| a row in `practice/<name>.md` | new problem in that module's interview set (see below) |
 | a whole new `notes/<name>.md` | a new module, titled from the filename |
 
 `segment_trees.md` becomes **Segment Trees** with no code change. Add it to
@@ -368,12 +404,16 @@ notes commit, the workflow did not run — check the Actions tab.
 - Indentation follows depth, so the page mirrors the shape of the markdown. Add a
   `####` under an existing `###` and it renders in the right place; add a whole
   new `##` and it becomes a new section. No code change either way.
-- A **problem** is picked up two ways: a `###` heading tagged `(LC 42)`, or a
-  `def some_function(...):  # LC 42` line in a code block. Problems are grouped
-  under the `##` section they appear in, so the grouping follows your own pattern
-  headings.
-- Topics with no LC-tagged headings (Monotonic Stack, Intervals) have concepts
-  but no problems — their Problems tab says so rather than showing an empty list.
+- A **problem** is picked up three ways: a `###` heading tagged `(LC 42)`, a
+  `def some_function(...):  # LC 42` line in a code block, or any other `LC 42`
+  reference in the section — `13. **Majority Element** (LC 169) — Boyer–Moore`
+  becomes *Majority Element*, hint *Boyer–Moore*. Problems are grouped under the
+  `##` section they appear in, so the grouping follows your own pattern headings.
+- A problem is listed once per module: a reference to a problem that already has
+  its own `###` write-up, or that the A2Z sheet lists in the same module, is not
+  added again. Only numbers that exist on LeetCode count (`tools/lc_index.json`).
+- Every problem with an LC number gets a **level** from LeetCode's difficulty —
+  Easy → Basic, Medium → Core, Hard → Pro — unless a practice sheet sets one.
 
 ## Problem links
 
@@ -381,13 +421,19 @@ Each problem gets one link, chosen in this order:
 
 | Tag | When | Goes to |
 |---|---|---|
-| **LeetCode** | the A2Z sheet has a LeetCode URL for it, or your notes title matches one that does | the problem on LeetCode |
+| **LeetCode** | it has an LC number, or the A2Z sheet has a LeetCode URL for it | the problem on LeetCode |
 | **takeUforward** | no LeetCode URL, but it is a practice entry | `takeuforward.org/plus/dsa/problems/<slug>` |
 | **TUF article** | a theory entry with a free article | `takeuforward.org/blogs/...` |
-| **Find on LC** | none of the above, but your notes give an LC number | a LeetCode search for that number |
+| **Find on LC** | an LC number that is not in `tools/lc_index.json` yet | a LeetCode search for that number |
 
-Current split across 825 problems: 304 LeetCode, 160 takeUforward, 21 TUF articles,
-310 LeetCode search, 30 with no link.
+Current split across 1504 problems: 1293 LeetCode, 160 takeUforward, 21 TUF
+articles, 0 LeetCode search, 30 with no link.
+
+LC numbers are resolved through `tools/lc_index.json`, LeetCode's own list of
+number → title, URL slug, difficulty and premium flag. The build reads it offline.
+Problems LeetCode added after the last refresh fall back to a search link until
+you run `python3 tools/fetch_lc_index.py` and commit the file. A **Premium** tag
+marks problems that need a LeetCode subscription.
 
 The pattern-printing problems (Pattern 1 through 22) have no LeetCode equivalent,
 so they link to takeUforward. Slugs come from the sheet's own data rather than

@@ -10,6 +10,8 @@ on:
       - 'notes/**.md'
       - 'tools/build_site.py'
       - 'tools/a2z_payload.txt'
+      - 'practice/**.md'
+      - 'tools/lc_index.json'
       - '.github/workflows/build-curriculum.yml'
   workflow_dispatch:        # lets you force a rebuild from the Actions tab
 
